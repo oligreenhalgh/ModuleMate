@@ -38,7 +38,7 @@ export default function App() {
             <a className="font-mono text-[10px] uppercase tracking-widest text-slate-500 hover:text-primary transition-colors" href="#">Support</a>
           </div>
           <div className="font-mono text-[10px] uppercase tracking-widest text-slate-500">
-            ModuleMate AI © 2024
+            ModuleMate AI © 2026
           </div>
         </footer>
       </div>
