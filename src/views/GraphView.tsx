@@ -358,9 +358,19 @@ export function GraphView() {
           <header>
             <div className="flex items-center justify-between mb-4">
               <span className="font-mono text-secondary text-sm">{selectedNode.id}</span>
-              <span className="px-2 py-0.5 rounded bg-secondary/10 text-secondary text-[10px] font-mono font-bold border border-secondary/20">
-                {selectedNode.credits} MC
-              </span>
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "text-[9px] font-mono uppercase px-1.5 py-0.5 rounded border",
+                  selectedNode.status === 'completed' && "text-green-400 bg-green-500/10 border-green-500/20",
+                  selectedNode.status === 'available' && "text-secondary bg-secondary/10 border-secondary/20",
+                  selectedNode.status === 'locked' && "text-slate-500 bg-slate-500/10 border-slate-500/20",
+                )}>
+                  {selectedNode.status}
+                </span>
+                <span className="px-2 py-0.5 rounded bg-secondary/10 text-secondary text-[10px] font-mono font-bold border border-secondary/20">
+                  {selectedNode.credits} MC
+                </span>
+              </div>
             </div>
             <h3 className="font-headline text-2xl font-bold leading-tight mb-2">{selectedNode.name}</h3>
             <p className="text-xs text-slate-400">{selectedNode.semester}</p>
@@ -404,13 +414,20 @@ export function GraphView() {
               </div>
             </section>
 
-            <section className="mt-auto pt-6">
+            <section className="mt-auto pt-6 space-y-3">
               <button
                 onClick={() => handleAddToPlanner(selectedNode)}
                 className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded flex items-center justify-center gap-2 transition-all group"
               >
                 <PlusCircle size={18} className="group-hover:translate-x-1 transition-transform" />
                 <span className="text-sm font-headline uppercase tracking-widest">Add to Planner</span>
+              </button>
+              <button
+                onClick={() => navigate('/explorer')}
+                className="w-full border border-secondary/30 text-secondary font-bold py-2.5 px-6 rounded flex items-center justify-center gap-2 hover:bg-secondary/10 transition-all"
+              >
+                <BookOpen size={16} />
+                <span className="text-xs font-headline uppercase tracking-widest">View in Explorer</span>
               </button>
             </section>
           </div>

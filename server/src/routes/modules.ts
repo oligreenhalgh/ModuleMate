@@ -38,6 +38,71 @@ router.get('/', (_req, res) => {
   res.json(modules);
 });
 
+/** GET /compare — compare two modules */
+router.get('/compare', async (req, res) => {
+  const { a, b } = req.query;
+  if (!a || !b) return res.status(400).json({ error: 'Parameters a and b required' });
+
+  const db = getDb();
+  const modA = db.prepare('SELECT * FROM modules WHERE code = ?').get(a) as any;
+  const modB = db.prepare('SELECT * FROM modules WHERE code = ?').get(b) as any;
+
+  if (!modA || !modB) return res.status(404).json({ error: 'Module not found' });
+
+  // Try AI comparison if API key available
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (apiKey && apiKey !== 'MY_GEMINI_API_KEY') {
+    try {
+      const { chatWithGemini } = await import('../services/gemini.js');
+      const result = await chatWithGemini([{
+        role: 'user',
+        content: `Compare these two university modules briefly:
+Module A: ${modA.code} - ${modA.name} (${modA.credits} credits, difficulty: ${modA.difficulty}/100, workload: ${modA.workload}/100)
+Module B: ${modB.code} - ${modB.name} (${modB.credits} credits, difficulty: ${modB.difficulty}/100, workload: ${modB.workload}/100)
+Give a concise recommendation on which to take and why.`
+      }], apiKey);
+      return res.json({ recommendation: result.content });
+    } catch (e) {
+      // Fall through to static comparison
+    }
+  }
+
+  // Static fallback comparison
+  const recommendation = generateStaticComparison(modA, modB);
+  res.json({ recommendation });
+});
+
+function generateStaticComparison(a: any, b: any): string {
+  const parts = [];
+  parts.push(`## ${a.code} vs ${b.code}\n`);
+
+  if (a.difficulty > b.difficulty) {
+    parts.push(`**${a.code}** is more challenging (difficulty: ${a.difficulty} vs ${b.difficulty}).`);
+  } else if (b.difficulty > a.difficulty) {
+    parts.push(`**${b.code}** is more challenging (difficulty: ${b.difficulty} vs ${a.difficulty}).`);
+  }
+
+  if (a.workload > b.workload) {
+    parts.push(`**${a.code}** requires more weekly hours (${a.avg_weekly_hours}h vs ${b.avg_weekly_hours}h).`);
+  } else if (b.workload > a.workload) {
+    parts.push(`**${b.code}** requires more weekly hours (${b.avg_weekly_hours}h vs ${a.avg_weekly_hours}h).`);
+  }
+
+  if (a.historical_a_rate > b.historical_a_rate) {
+    parts.push(`**${a.code}** has a higher A-rate (${a.historical_a_rate}% vs ${b.historical_a_rate}%).`);
+  } else {
+    parts.push(`**${b.code}** has a higher A-rate (${b.historical_a_rate}% vs ${a.historical_a_rate}%).`);
+  }
+
+  // Theory vs project balance
+  if (a.theory > 60) parts.push(`${a.code} is theory-heavy (${a.theory}% theory).`);
+  if (b.project > 60) parts.push(`${b.code} is project-heavy (${b.project}% project).`);
+
+  parts.push(`\n**Recommendation:** Take ${a.historical_a_rate >= b.historical_a_rate ? a.code : b.code} if you prefer better grade outcomes, or ${a.project > b.project ? a.code : b.code} for more hands-on experience.`);
+
+  return parts.join('\n');
+}
+
 /** GET /:code — single module */
 router.get('/:code', (req, res) => {
   const db = getDb();

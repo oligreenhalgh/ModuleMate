@@ -10,15 +10,26 @@ import {
   Plus,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getSchedule, getStats, deleteScheduleEntry } from '../services/api';
+import { getSchedule, getStats, deleteScheduleEntry, addScheduleEntry, getModules } from '../services/api';
 import type { ScheduleEntry, Conflict, UserStats } from '../services/api';
+import type { Module } from '../types';
 import { toast } from 'sonner';
+import { cn } from '../lib/utils';
 
 export function ScheduleView() {
   const [entries, setEntries] = useState<ScheduleEntry[]>([]);
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [availableModules, setAvailableModules] = useState<Module[]>([]);
+  const [addForm, setAddForm] = useState({
+    module_code: '',
+    schedule: '',
+    professor: '',
+    semester: '',
+  });
+  const [submitting, setSubmitting] = useState(false);
   const navigate = useNavigate();
 
   const fetchData = () => {
@@ -34,6 +45,39 @@ export function ScheduleView() {
   };
 
   useEffect(() => { fetchData(); }, []);
+
+  useEffect(() => {
+    getModules()
+      .then(mods => setAvailableModules(mods.filter(m => m.status !== 'locked')))
+      .catch(() => {});
+  }, []);
+
+  const handleAddModule = async () => {
+    if (!addForm.module_code) {
+      toast.error('Please select a module');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      const mod = availableModules.find(m => m.code === addForm.module_code);
+      await addScheduleEntry({
+        module_code: addForm.module_code,
+        course_name: mod?.name || addForm.module_code,
+        schedule: addForm.schedule || 'TBD',
+        professor: addForm.professor || 'TBD',
+        credits: mod?.credits || 4,
+        semester: addForm.semester || 'Semester 1',
+      });
+      toast.success(`${addForm.module_code} added to schedule!`);
+      setAddForm({ module_code: '', schedule: '', professor: '', semester: '' });
+      setShowAddForm(false);
+      fetchData();
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add module');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   const handleDelete = async (id: string) => {
     try {
@@ -100,9 +144,14 @@ export function ScheduleView() {
                   <p className="font-mono text-[10px] text-slate-500 uppercase tracking-widest">Total Scheduled</p>
                 </div>
                 <button
-                  onClick={() => navigate('/graph')}
-                  className="p-2 border border-outline-variant/30 rounded hover:bg-surface-high transition-colors text-on-surface-variant hover:text-primary"
-                  title="Add modules from graph"
+                  onClick={() => setShowAddForm(!showAddForm)}
+                  className={cn(
+                    "p-2 border rounded transition-colors",
+                    showAddForm
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-outline-variant/30 hover:bg-surface-high text-on-surface-variant hover:text-primary"
+                  )}
+                  title="Add module to schedule"
                 >
                   <Plus size={18} />
                 </button>
@@ -133,6 +182,82 @@ export function ScheduleView() {
               </>
             )}
           </section>
+
+          {/* Add Module Form */}
+          {showAddForm && (
+            <section className="bg-surface p-6 rounded border border-primary/30 shadow-lg shadow-primary/5">
+              <h3 className="font-headline font-bold text-sm uppercase tracking-wider mb-4">Add Module to Schedule</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                <div>
+                  <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1 block">Module</label>
+                  <select
+                    value={addForm.module_code}
+                    onChange={e => setAddForm(f => ({ ...f, module_code: e.target.value }))}
+                    className="w-full bg-surface-low border border-outline-variant/20 text-sm font-mono px-3 py-2.5 rounded outline-none focus:border-primary transition-colors"
+                  >
+                    <option value="">Select a module...</option>
+                    {availableModules.map(m => (
+                      <option key={m.code} value={m.code}>{m.code} — {m.name}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1 block">Day / Time</label>
+                  <select
+                    value={addForm.schedule}
+                    onChange={e => setAddForm(f => ({ ...f, schedule: e.target.value }))}
+                    className="w-full bg-surface-low border border-outline-variant/20 text-sm font-mono px-3 py-2.5 rounded outline-none focus:border-primary transition-colors"
+                  >
+                    <option value="">Select a time slot...</option>
+                    {['Mon 09:00-11:00', 'Mon 14:00-16:00', 'Tue 09:00-11:00', 'Tue 14:00-16:00',
+                      'Wed 09:00-11:00', 'Wed 14:00-16:00', 'Thu 09:00-11:00', 'Thu 14:00-16:00',
+                      'Fri 09:00-11:00', 'Fri 14:00-16:00'].map(slot => (
+                      <option key={slot} value={slot}>{slot}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1 block">Professor</label>
+                  <input
+                    value={addForm.professor}
+                    onChange={e => setAddForm(f => ({ ...f, professor: e.target.value }))}
+                    placeholder="e.g. Dr. Smith"
+                    className="w-full bg-surface-low border border-outline-variant/20 text-sm font-body px-3 py-2.5 rounded outline-none focus:border-primary transition-colors placeholder:text-on-surface-variant/30"
+                    type="text"
+                  />
+                </div>
+                <div>
+                  <label className="text-[10px] font-mono text-slate-500 uppercase tracking-widest mb-1 block">Semester</label>
+                  <select
+                    value={addForm.semester}
+                    onChange={e => setAddForm(f => ({ ...f, semester: e.target.value }))}
+                    className="w-full bg-surface-low border border-outline-variant/20 text-sm font-mono px-3 py-2.5 rounded outline-none focus:border-primary transition-colors"
+                  >
+                    <option value="">Select semester...</option>
+                    <option value="Semester 1">Semester 1</option>
+                    <option value="Semester 2">Semester 2</option>
+                    <option value="Summer">Summer</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleAddModule}
+                  disabled={submitting || !addForm.module_code}
+                  className="px-6 py-2.5 bg-primary text-white text-xs font-bold uppercase tracking-widest rounded hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                >
+                  {submitting && <Loader2 size={14} className="animate-spin" />}
+                  Add to Schedule
+                </button>
+                <button
+                  onClick={() => setShowAddForm(false)}
+                  className="px-6 py-2.5 border border-outline-variant/30 text-on-surface-variant text-xs font-bold uppercase tracking-widest rounded hover:bg-surface-high transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </section>
+          )}
 
           {/* Empty State */}
           {entries.length === 0 && (

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Sparkles, ChevronRight, GraduationCap, X, Loader2, Search, BookOpen, Layers, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getMajors, searchMajorsAI, getModules } from '../services/api';
+import { getMajors, searchMajorsAI, getModules, updateModuleStatus } from '../services/api';
 import type { SearchResult } from '../services/api';
 import { Major, Module } from '../types';
 import { cn } from '../lib/utils';
@@ -419,7 +419,34 @@ export function ExplorerView() {
                     </div>
                   )}
 
-                  <div className="flex gap-3 mt-auto pt-4">
+                  {/* Status Toggle */}
+                  {selectedModule.status !== 'locked' && (
+                    <button
+                      onClick={async () => {
+                        const newStatus = selectedModule.status === 'completed' ? 'available' : 'completed';
+                        try {
+                          await updateModuleStatus(selectedModule.code, newStatus);
+                          const updated = await getModules();
+                          setModules(updated);
+                          const updatedModule = updated.find(m => m.code === selectedModule.code);
+                          if (updatedModule) setSelectedModule(updatedModule);
+                          toast.success(`${selectedModule.code} marked as ${newStatus}`);
+                        } catch {
+                          toast.error('Failed to update module status');
+                        }
+                      }}
+                      className={cn(
+                        "w-full py-3 rounded-lg font-headline font-bold text-xs uppercase tracking-widest transition-all",
+                        selectedModule.status === 'completed'
+                          ? "bg-surface-high border border-outline-variant/30 text-on-surface-variant hover:bg-surface-low"
+                          : "bg-green-600 text-white hover:bg-green-500"
+                      )}
+                    >
+                      {selectedModule.status === 'completed' ? 'Mark as Not Completed' : 'Mark as Completed ✓'}
+                    </button>
+                  )}
+
+                  <div className="flex gap-3 mt-2">
                     <button
                       onClick={() => { navigate(`/compare?a=${selectedModule.code}`); }}
                       className="flex-1 py-2 border border-secondary text-secondary text-xs font-bold uppercase tracking-widest hover:bg-secondary/10 transition-colors rounded"
