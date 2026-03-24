@@ -33,7 +33,16 @@ describe('Schedule API', () => {
   });
 
   describe('GET /api/schedule', () => {
-    it('returns entries and conflicts', async () => {
+    it('returns entries and conflicts shape', async () => {
+      // Create an entry first to ensure non-empty (parallel tests may clear data)
+      await request(app).post('/api/schedule').send({
+        module_code: 'GET_TEST',
+        course_name: 'GET Test',
+        schedule: 'Thu 09:00',
+        professor: 'Dr. Test',
+        credits: 3,
+        semester: 'Test Sem',
+      });
       const res = await request(app).get('/api/schedule');
       expect(res.status).toBe(200);
       expect(res.body).toHaveProperty('entries');

@@ -1,16 +1,18 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink } from 'react-router-dom';
-import { 
-  MessageSquare, 
-  Compass, 
-  Calendar, 
-  GitBranch, 
-  Settings, 
+import {
+  MessageSquare,
+  Compass,
+  Calendar,
+  GitBranch,
+  Settings,
   Zap,
   User,
   BarChart2
 } from 'lucide-react';
 import { cn } from '../lib/utils';
+import { getProfile } from '../services/api';
+import type { UserProfile } from '../services/api';
 
 const navItems = [
   { icon: MessageSquare, label: 'Home', path: '/' },
@@ -22,6 +24,32 @@ const navItems = [
 ];
 
 export function Sidebar() {
+  const [profile, setProfile] = useState<UserProfile>({
+    name: 'Alex Chen',
+    program: 'L4 Computer Science',
+    gpa: 0,
+    gpa_max: 0,
+    gpa_trend: 0,
+    total_credits: 0,
+    required_credits: 0,
+    major_credits: 0,
+    major_required: 0,
+    ue_credits: 0,
+    ue_required: 0,
+    ai_credits_used: 750,
+    ai_credits_max: 1000,
+  });
+
+  useEffect(() => {
+    getProfile()
+      .then(setProfile)
+      .catch(() => {});
+  }, []);
+
+  const creditPercent = profile.ai_credits_max > 0
+    ? (profile.ai_credits_used / profile.ai_credits_max) * 100
+    : 0;
+
   return (
     <aside className="fixed left-0 top-0 h-full w-[250px] bg-background border-r border-outline-variant/20 flex flex-col pt-20 z-40">
       <div className="px-6 mb-8">
@@ -36,8 +64,8 @@ export function Sidebar() {
             to={item.path}
             className={({ isActive }) => cn(
               "flex items-center gap-3 px-4 py-3 rounded transition-all font-headline text-sm tracking-wide",
-              isActive 
-                ? "bg-primary/10 text-primary border-r-4 border-primary font-bold translate-x-1" 
+              isActive
+                ? "bg-primary/10 text-primary border-r-4 border-primary font-bold translate-x-1"
                 : "text-slate-400 hover:text-white hover:bg-white/5"
             )}
           >
@@ -56,18 +84,18 @@ export function Sidebar() {
             <span className="text-xs font-bold text-on-surface">Pro Plan</span>
           </div>
           <div className="w-full bg-surface rounded-full h-1.5 mb-2">
-            <div className="bg-primary h-1.5 rounded-full" style={{ width: '75%' }}></div>
+            <div className="bg-primary h-1.5 rounded-full" style={{ width: `${creditPercent}%` }}></div>
           </div>
-          <p className="text-[10px] text-on-surface-variant font-mono">750/1000 AI Credits Used</p>
+          <p className="text-[10px] text-on-surface-variant font-mono">{profile.ai_credits_used}/{profile.ai_credits_max} AI Credits Used</p>
         </div>
-        
+
         <div className="mt-4 flex items-center gap-3 p-2 bg-surface rounded-lg border border-outline-variant/10">
           <div className="w-8 h-8 rounded-full bg-surface-high flex items-center justify-center border border-primary/20">
             <User size={14} className="text-primary" />
           </div>
           <div className="overflow-hidden">
-            <p className="text-xs font-bold truncate">Alex Chen</p>
-            <p className="text-[10px] text-slate-500 font-mono">L4 Computer Science</p>
+            <p className="text-xs font-bold truncate">{profile.name}</p>
+            <p className="text-[10px] text-slate-500 font-mono">{profile.program}</p>
           </div>
         </div>
       </div>

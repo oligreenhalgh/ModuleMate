@@ -1,18 +1,49 @@
-import React, { useState } from 'react';
-import { 
-  ZoomIn, 
-  ZoomOut, 
-  Maximize, 
-  Focus, 
-  CheckCircle, 
+import React, { useState, useEffect } from 'react';
+import {
+  ZoomIn,
+  ZoomOut,
+  Maximize,
+  Focus,
+  CheckCircle,
   PlusCircle,
   Info
 } from 'lucide-react';
-import { MODULES } from '../constants';
+import { getModules, addScheduleEntry } from '../services/api';
+import { toast } from 'sonner';
 import { cn } from '../lib/utils';
+import type { Module } from '../types';
 
 export function GraphView() {
-  const [selectedModule, setSelectedModule] = useState(MODULES.find(m => m.code === 'CS3230'));
+  const [modules, setModules] = useState<Module[]>([]);
+  const [selectedModule, setSelectedModule] = useState<Module | undefined>(undefined);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    getModules()
+      .then((data) => {
+        setModules(data);
+        setSelectedModule(data.find(m => m.code === 'CS3230'));
+      })
+      .catch((err) => toast.error(err.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const handleAddToPlanner = async () => {
+    if (!selectedModule) return;
+    try {
+      await addScheduleEntry({
+        module_code: selectedModule.code,
+        course_name: selectedModule.name,
+        schedule: 'TBD',
+        professor: 'TBD',
+        credits: selectedModule.credits,
+        semester: 'Next Semester',
+      });
+      toast.success(`${selectedModule.code} added to planner!`);
+    } catch (err: any) {
+      toast.error(err.message);
+    }
+  };
 
   return (
     <div className="flex-1 h-screen relative overflow-hidden bg-background canvas-grid">
@@ -22,13 +53,13 @@ export function GraphView() {
         <path d="M 180 300 C 250 300, 250 400, 320 400" fill="none" stroke="#2A2A35" strokeWidth="1.5" />
         <path d="M 440 200 C 510 200, 510 300, 580 300" fill="none" stroke="#2A2A35" strokeWidth="1.5" />
         <path d="M 440 400 C 510 400, 510 300, 580 300" fill="none" stroke="#2A2A35" strokeWidth="1.5" />
-        
+
         {/* Active Path */}
-        <path 
-          className="stroke-primary" 
-          d="M 580 300 C 650 300, 650 300, 720 300" 
-          fill="none" 
-          strokeWidth="2" 
+        <path
+          className="stroke-primary"
+          d="M 580 300 C 650 300, 650 300, 720 300"
+          fill="none"
+          strokeWidth="2"
           strokeDasharray="5"
           style={{ filter: 'drop-shadow(0 0 5px #B026FF)' }}
         />
@@ -46,11 +77,11 @@ export function GraphView() {
           <ModuleNode code="CS2040" status="completed" />
         </div>
         <div className="absolute" style={{ left: 580, top: 270 }}>
-          <ModuleNode 
-            code="CS3230" 
-            status="available" 
-            active 
-            onClick={() => setSelectedModule(MODULES.find(m => m.code === 'CS3230'))} 
+          <ModuleNode
+            code="CS3230"
+            status="available"
+            active
+            onClick={() => setSelectedModule(modules.find(m => m.code === 'CS3230'))}
           />
         </div>
         <div className="absolute" style={{ left: 840, top: 270 }}>
@@ -112,7 +143,10 @@ export function GraphView() {
             </section>
 
             <section className="mt-auto pt-6">
-              <button className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded flex items-center justify-center gap-2 transition-all group">
+              <button
+                onClick={handleAddToPlanner}
+                className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded flex items-center justify-center gap-2 transition-all group"
+              >
                 <PlusCircle size={18} className="group-hover:translate-x-1 transition-transform" />
                 <span className="text-sm font-headline uppercase tracking-widest">Add to Planner</span>
               </button>
@@ -145,7 +179,7 @@ function ModuleNode({ code, status, active, onClick }: { code: string, status: s
   const isLocked = status === 'locked';
 
   return (
-    <div 
+    <div
       onClick={onClick}
       className={cn(
         "w-[120px] h-[60px] rounded flex flex-col items-center justify-center transition-all cursor-pointer",

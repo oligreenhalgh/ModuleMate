@@ -1,16 +1,105 @@
-import React from 'react';
-import { 
-  Brain, 
-  Database, 
-  Palette, 
-  AlertTriangle, 
-  Eye, 
-  Trash2, 
+import React, { useState, useEffect, useRef } from 'react';
+import {
+  Brain,
+  Database,
+  Palette,
+  AlertTriangle,
+  Eye,
+  EyeOff,
+  Trash2,
   Upload,
   Zap
 } from 'lucide-react';
+import { toast } from 'sonner';
+import {
+  getSettings,
+  updateSettings,
+  getTranscripts,
+  uploadTranscript,
+  deleteTranscript,
+  resetProfile,
+} from '../services/api';
+import type { Transcript } from '../services/api';
 
 export function SettingsView() {
+  const [settings, setSettings] = useState<Record<string, string>>({});
+  const [transcripts, setTranscripts] = useState<Transcript[]>([]);
+  const [apiKeyVisible, setApiKeyVisible] = useState(false);
+  const [apiKeyInput, setApiKeyInput] = useState('');
+  const [loading, setLoading] = useState(true);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    async function load() {
+      try {
+        const [s, t] = await Promise.all([getSettings(), getTranscripts()]);
+        setSettings(s);
+        setApiKeyInput(s.gemini_api_key || '');
+        setTranscripts(t);
+      } catch (e: any) {
+        toast.error('Failed to load settings');
+      } finally {
+        setLoading(false);
+      }
+    }
+    load();
+  }, []);
+
+  const refreshTranscripts = async () => {
+    try {
+      const t = await getTranscripts();
+      setTranscripts(t);
+    } catch {
+      toast.error('Failed to refresh transcripts');
+    }
+  };
+
+  const handleSaveApiKey = async () => {
+    try {
+      await updateSettings({ gemini_api_key: apiKeyInput });
+      toast.success('API key saved');
+    } catch {
+      toast.error('Failed to save API key');
+    }
+  };
+
+  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      await uploadTranscript(file);
+      toast.success('Transcript uploaded');
+      await refreshTranscripts();
+    } catch {
+      toast.error('Failed to upload transcript');
+    }
+    // reset so the same file can be re-selected
+    e.target.value = '';
+  };
+
+  const handleDelete = async (id: string) => {
+    try {
+      await deleteTranscript(id);
+      toast.success('Transcript deleted');
+      await refreshTranscripts();
+    } catch {
+      toast.error('Failed to delete transcript');
+    }
+  };
+
+  const handleReset = async () => {
+    if (confirm('Are you sure you want to reset your academic profile? This will purge all course history and majors.')) {
+      try {
+        await resetProfile();
+        toast.success('Profile has been reset');
+      } catch {
+        toast.error('Failed to reset profile');
+      }
+    }
+  };
+
+  const maskedKey = apiKeyInput ? apiKeyInput.slice(0, 8) + '••••••••••••••••' : '';
+
   return (
     <div className="flex-1 h-screen overflow-y-auto custom-scrollbar bg-background">
       <div className="pt-24 pb-20 px-10 max-w-4xl mx-auto">
@@ -29,15 +118,25 @@ export function SettingsView() {
             <div className="bg-surface p-8 rounded-lg border border-outline-variant/5">
               <div className="max-w-xl">
                 <label className="block text-xs font-mono text-primary uppercase tracking-tighter mb-4">Gemini API Key</label>
-                <div className="relative flex items-center">
-                  <input 
-                    className="w-full bg-surface-low border-b border-outline-variant/20 focus:border-primary outline-none py-3 px-4 font-mono text-sm text-on-surface transition-all" 
-                    readOnly 
-                    type="password" 
-                    value="sk-gemini-v1-alpha-29384kdjfh20934"
+                <div className="relative flex items-center gap-2">
+                  <input
+                    className="w-full bg-surface-low border-b border-outline-variant/20 focus:border-primary outline-none py-3 px-4 font-mono text-sm text-on-surface transition-all"
+                    type={apiKeyVisible ? 'text' : 'password'}
+                    value={apiKeyVisible ? apiKeyInput : maskedKey}
+                    onChange={(e) => { setApiKeyInput(e.target.value); }}
+                    readOnly={!apiKeyVisible}
                   />
-                  <button className="absolute right-4 text-outline-variant hover:text-primary transition-colors">
-                    <Eye size={18} />
+                  <button
+                    className="absolute right-16 text-outline-variant hover:text-primary transition-colors"
+                    onClick={() => setApiKeyVisible(!apiKeyVisible)}
+                  >
+                    {apiKeyVisible ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                  <button
+                    className="px-4 py-2 bg-primary text-background font-headline font-bold text-xs uppercase tracking-tighter hover:shadow-[0_0_15px_rgba(0,240,255,0.4)] transition-all"
+                    onClick={handleSaveApiKey}
+                  >
+                    Save
                   </button>
                 </div>
                 <p className="mt-4 text-xs text-on-surface-variant leading-relaxed">
@@ -64,22 +163,36 @@ export function SettingsView() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-outline-variant/10">
-                  <tr className="hover:bg-white/5 transition-colors group">
-                    <td className="px-6 py-4 font-mono text-sm text-on-surface">trans_fall_2023_v2.pdf</td>
-                    <td className="px-6 py-4">
-                      <span className="px-2 py-0.5 rounded-full bg-secondary/10 text-secondary text-[10px] font-mono border border-secondary/20 uppercase">Official</span>
-                    </td>
-                    <td className="px-6 py-4 font-mono text-xs text-on-surface-variant">2023.11.24 14:22</td>
-                    <td className="px-6 py-4 text-right">
-                      <button className="text-outline-variant hover:text-error transition-colors">
-                        <Trash2 size={14} />
-                      </button>
-                    </td>
-                  </tr>
+                  {transcripts.map((t) => (
+                    <tr key={t.id} className="hover:bg-white/5 transition-colors group">
+                      <td className="px-6 py-4 font-mono text-sm text-on-surface">{t.filename}</td>
+                      <td className="px-6 py-4">
+                        <span className="px-2 py-0.5 rounded-full bg-secondary/10 text-secondary text-[10px] font-mono border border-secondary/20 uppercase">{t.type}</span>
+                      </td>
+                      <td className="px-6 py-4 font-mono text-xs text-on-surface-variant">{t.processed_date}</td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          className="text-outline-variant hover:text-error transition-colors"
+                          onClick={() => handleDelete(t.id)}
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
                 </tbody>
               </table>
               <div className="p-6 bg-surface-low border-t border-outline-variant/10 flex justify-center">
-                <button className="flex items-center gap-2 px-6 py-2 bg-secondary text-background font-headline font-bold text-sm uppercase tracking-tighter hover:shadow-[0_0_15px_rgba(0,240,255,0.4)] transition-all">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  onChange={handleUpload}
+                />
+                <button
+                  className="flex items-center gap-2 px-6 py-2 bg-secondary text-background font-headline font-bold text-sm uppercase tracking-tighter hover:shadow-[0_0_15px_rgba(0,240,255,0.4)] transition-all"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   <Upload size={16} />
                   <span>Upload New Transcript</span>
                 </button>
@@ -117,7 +230,10 @@ export function SettingsView() {
                     <p className="text-sm font-bold text-on-surface">Academic Profile Reset</p>
                     <p className="text-xs text-on-surface-variant">Purge all course history and majors.</p>
                   </div>
-                  <button className="px-4 py-2 border border-error/50 text-error font-mono text-[10px] uppercase tracking-widest hover:bg-error/10 transition-all">
+                  <button
+                    className="px-4 py-2 border border-error/50 text-error font-mono text-[10px] uppercase tracking-widest hover:bg-error/10 transition-all"
+                    onClick={handleReset}
+                  >
                     Initialize Reset
                   </button>
                 </div>
