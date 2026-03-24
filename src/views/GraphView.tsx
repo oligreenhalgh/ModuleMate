@@ -417,6 +417,22 @@ export function GraphView() {
         </aside>
       )}
 
+      {/* Legend */}
+      <div className="absolute bottom-10 right-10 flex items-center gap-4 p-3 bg-surface/80 backdrop-blur-xl border border-outline-variant/30 rounded shadow-2xl z-10">
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded border-2 border-green-500/50 bg-surface-low"></div>
+          <span className="text-[9px] font-mono text-slate-400 uppercase">Completed</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded border-2 border-secondary bg-surface-high"></div>
+          <span className="text-[9px] font-mono text-slate-400 uppercase">Available</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-3 h-3 rounded border-2 border-dotted border-slate-600 bg-surface-low"></div>
+          <span className="text-[9px] font-mono text-slate-400 uppercase">Locked</span>
+        </div>
+      </div>
+
       {/* Minimap */}
       {nodes.length > 0 && (
         <div className={cn(

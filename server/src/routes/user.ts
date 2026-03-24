@@ -65,7 +65,7 @@ router.get('/stats', (_req, res) => {
     }
   }
 
-  res.json({ ...profile, alerts });
+  res.json({ ...(profile as Record<string, unknown>), alerts });
 });
 
 /** POST /reset — resets academic profile */

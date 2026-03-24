@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Sparkles, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Send, Sparkles, TrendingUp, AlertTriangle, Plus } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { getThreads, createThread, getMessages, sendMessage, getStats, Thread, UserStats } from '../services/api';
@@ -111,8 +111,22 @@ export function HomeView() {
     <div className="flex-1 flex overflow-hidden">
       {/* Left Pane: Threads */}
       <aside className="w-64 bg-surface border-r border-outline-variant/20 flex flex-col hidden lg:flex">
-        <div className="p-4 border-b border-outline-variant/10">
+        <div className="p-4 border-b border-outline-variant/10 flex items-center justify-between">
           <span className="text-[10px] font-mono text-on-surface-variant/50 uppercase tracking-widest">Recent Threads</span>
+          <button
+            onClick={async () => {
+              try {
+                const newThread = await createThread('New Chat');
+                setThreads(prev => [newThread, ...prev]);
+                setActiveThreadId(newThread.id);
+                setMessages([]);
+              } catch { toast.error('Failed to create thread'); }
+            }}
+            className="p-1 hover:bg-surface-high rounded transition-colors text-on-surface-variant/50 hover:text-primary"
+            title="New chat"
+          >
+            <Plus size={14} />
+          </button>
         </div>
         <div className="flex-1 overflow-y-auto p-2 space-y-1 custom-scrollbar">
           {loadingThreads ? (
@@ -156,6 +170,34 @@ export function HomeView() {
 
       {/* Center Pane: Chat */}
       <section className="flex-1 flex flex-col bg-background relative">
+        {/* Compact Stats Bar - visible on screens where sidebar is hidden */}
+        <div className="xl:hidden flex items-center gap-6 px-6 py-3 bg-surface border-b border-outline-variant/20 overflow-x-auto">
+          <div className="flex items-center gap-2 shrink-0">
+            <TrendingUp size={14} className="text-secondary" />
+            <span className="text-xs font-mono text-on-surface font-bold">{stats ? stats.gpa.toFixed(2) : '--'}</span>
+            <span className="text-[10px] font-mono text-on-surface-variant/50">GPA</span>
+          </div>
+          <div className="w-px h-4 bg-outline-variant/20 shrink-0" />
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs font-mono text-on-surface font-bold">{stats ? stats.total_credits : '--'}</span>
+            <span className="text-[10px] font-mono text-on-surface-variant/50">/ {stats ? stats.required_credits : '--'} credits</span>
+          </div>
+          <div className="w-px h-4 bg-outline-variant/20 shrink-0" />
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs font-mono text-on-surface font-bold">{stats ? `${stats.major_credits + stats.ue_credits}` : '--'}</span>
+            <span className="text-[10px] font-mono text-on-surface-variant/50">modules completed</span>
+          </div>
+          {stats && stats.alerts.length > 0 && (
+            <>
+              <div className="w-px h-4 bg-outline-variant/20 shrink-0" />
+              <div className="flex items-center gap-1.5 shrink-0">
+                <AlertTriangle size={12} className="text-error" />
+                <span className="text-[10px] font-mono text-error">{stats.alerts.length} alert{stats.alerts.length !== 1 ? 's' : ''}</span>
+              </div>
+            </>
+          )}
+        </div>
+
         <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-8 space-y-8 custom-scrollbar">
           {messages.map((msg) => (
             <div

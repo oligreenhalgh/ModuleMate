@@ -7,7 +7,9 @@ import {
   User as UserIcon,
   Trash2,
   Loader2,
+  Plus,
 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { getSchedule, getStats, deleteScheduleEntry } from '../services/api';
 import type { ScheduleEntry, Conflict, UserStats } from '../services/api';
 import { toast } from 'sonner';
@@ -17,6 +19,7 @@ export function ScheduleView() {
   const [conflicts, setConflicts] = useState<Conflict[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   const fetchData = () => {
     setLoading(true);
@@ -88,12 +91,21 @@ export function ScheduleView() {
                     : 'No modules scheduled yet. Add modules from the Dependency Graph.'}
                 </p>
               </div>
-              <div className="text-right">
-                <span className="font-mono text-2xl font-bold text-secondary">
-                  {totalCredits}
-                  <span className="text-slate-500 font-medium text-lg"> MC</span>
-                </span>
-                <p className="font-mono text-[10px] text-slate-500 uppercase tracking-widest">Total Scheduled</p>
+              <div className="flex items-center gap-4">
+                <div className="text-right">
+                  <span className="font-mono text-2xl font-bold text-secondary">
+                    {totalCredits}
+                    <span className="text-slate-500 font-medium text-lg"> MC</span>
+                  </span>
+                  <p className="font-mono text-[10px] text-slate-500 uppercase tracking-widest">Total Scheduled</p>
+                </div>
+                <button
+                  onClick={() => navigate('/graph')}
+                  className="p-2 border border-outline-variant/30 rounded hover:bg-surface-high transition-colors text-on-surface-variant hover:text-primary"
+                  title="Add modules from graph"
+                >
+                  <Plus size={18} />
+                </button>
               </div>
             </div>
             {stats && (
@@ -126,9 +138,24 @@ export function ScheduleView() {
           {entries.length === 0 && (
             <div className="text-center py-16 bg-surface border border-outline-variant/20 rounded">
               <p className="text-sm text-on-surface-variant/60 mb-2">No modules in your schedule yet.</p>
-              <p className="text-xs text-slate-500">
-                Go to <span className="text-primary font-bold">Major Explorer</span> → Preview Path → click modules to add them.
+              <p className="text-xs text-slate-500 mb-4">
+                Browse modules or open the prerequisite graph to add modules to your planner.
               </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  onClick={() => navigate('/explorer')}
+                  className="px-4 py-2 bg-primary text-white text-xs font-bold uppercase tracking-widest rounded hover:bg-primary/90 transition-colors flex items-center gap-2"
+                >
+                  <Plus size={14} />
+                  Browse Modules
+                </button>
+                <button
+                  onClick={() => navigate('/graph')}
+                  className="px-4 py-2 border border-secondary text-secondary text-xs font-bold uppercase tracking-widest rounded hover:bg-secondary/10 transition-colors"
+                >
+                  View Graph
+                </button>
+              </div>
             </div>
           )}
 
