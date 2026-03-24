@@ -143,6 +143,8 @@ router.post('/threads/:id/messages', async (req, res) => {
       const completedRows = db.prepare("SELECT code FROM modules WHERE status = 'completed'").all() as { code: string }[];
       const completedModules = completedRows.map(r => r.code);
 
+      const uobModules = db.prepare('SELECT code, name, credits, year, type FROM uob_modules').all() as { code: string; name: string; credits: number; year: number; type: string }[];
+
       try {
         roadmap = await generateRoadmap(history, {
           program: profile?.program || 'Unknown',
@@ -150,7 +152,7 @@ router.post('/threads/:id/messages', async (req, res) => {
           total_credits: profile?.total_credits || 0,
           required_credits: profile?.required_credits || 0,
           completed_modules: completedModules,
-        }, apiKey);
+        }, uobModules, apiKey);
 
         // Sync roadmap modules into the database so they appear in Explorer
         if (roadmap && roadmap.semesters) {

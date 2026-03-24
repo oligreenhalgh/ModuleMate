@@ -7,6 +7,7 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer
 } from 'recharts';
+import ReactMarkdown from 'react-markdown';
 import { getUoBModules, compareModules } from '../services/api';
 import type { Module } from '../types';
 
@@ -17,7 +18,7 @@ export function ComparisonView() {
   const [codeA, setCodeA] = useState('06-34253');
   const [codeB, setCodeB] = useState('06-34248');
   const [recommendation, setRecommendation] = useState(
-    '"Select two modules and click Compare to get an AI recommendation."'
+    'Select two modules and click **Compare** to get an AI recommendation.'
   );
   const [loading, setLoading] = useState(true);
 
@@ -39,9 +40,9 @@ export function ComparisonView() {
     if (b) setModuleB(b);
     try {
       const res = await compareModules(codeA, codeB);
-      setRecommendation(`"${res.recommendation}"`);
+      setRecommendation(res.recommendation);
     } catch {
-      setRecommendation('"AI recommendation unavailable. Configure your Gemini API key in Settings."');
+      setRecommendation('*AI recommendation unavailable.* Configure your Gemini API key in Settings.');
     }
   };
 
@@ -197,11 +198,11 @@ export function ComparisonView() {
               </div>
             </div>
 
-            <div className="bg-surface p-6 border border-outline-variant/20 rounded-lg">
-              <h3 className="text-[10px] font-mono text-secondary uppercase tracking-widest mb-4">AI Recommendation</h3>
-              <p className="text-xs text-on-surface-variant leading-relaxed">
-                {recommendation}
-              </p>
+            <div className="bg-surface p-6 border border-outline-variant/20 rounded-lg overflow-hidden flex flex-col max-h-[350px]">
+              <h3 className="text-[10px] font-mono text-secondary uppercase tracking-widest mb-4 shrink-0">AI Recommendation</h3>
+              <div className="overflow-y-auto custom-scrollbar chat-markdown">
+                <ReactMarkdown>{recommendation}</ReactMarkdown>
+              </div>
             </div>
           </div>
         </div>
