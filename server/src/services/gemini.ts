@@ -21,6 +21,71 @@ export async function chatWithGemini(
   return { content, modules };
 }
 
+export async function generateMajorPath(
+  majorName: string,
+  foundationalModules: string[],
+  apiKey: string
+): Promise<{ semesters: { name: string; modules: { code: string; name: string; credits: number }[] }[]; summary: string }> {
+  const ai = new GoogleGenAI({ apiKey });
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.0-flash',
+    contents: [{
+      role: 'user',
+      parts: [{ text: `Generate a 4-year (8 semester) recommended module pathway for a "${majorName}" degree. Foundational modules include: ${foundationalModules.join(', ')}.
+
+Return ONLY valid JSON (no markdown fences) in this exact format:
+{
+  "semesters": [
+    { "name": "Year 1 Sem 1", "modules": [{ "code": "CS1010", "name": "Programming Methodology", "credits": 4 }] }
+  ],
+  "summary": "Brief 1-2 sentence summary of the pathway focus."
+}
+
+Include 4-5 modules per semester, 4 credits each. Use realistic module codes. Cover foundations first, then specialization.` }],
+    }],
+    config: { systemInstruction: SYSTEM_INSTRUCTION },
+  });
+  const text = response.text || '{}';
+  try {
+    return JSON.parse(text);
+  } catch {
+    // Try extracting JSON from markdown fences
+    const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (match) return JSON.parse(match[1].trim());
+    return { semesters: [], summary: text };
+  }
+}
+
+export async function searchMajors(
+  query: string,
+  apiKey: string
+): Promise<{ results: { name: string; description: string; relevance: string }[] }> {
+  const ai = new GoogleGenAI({ apiKey });
+  const response = await ai.models.generateContent({
+    model: 'gemini-2.0-flash',
+    contents: [{
+      role: 'user',
+      parts: [{ text: `The user searched for: "${query}". Suggest 3 university degree specializations related to this query.
+
+Return ONLY valid JSON (no markdown fences):
+{
+  "results": [
+    { "name": "Degree Name", "description": "One sentence description", "relevance": "Why this matches the query" }
+  ]
+}` }],
+    }],
+    config: { systemInstruction: SYSTEM_INSTRUCTION },
+  });
+  const text = response.text || '{}';
+  try {
+    return JSON.parse(text);
+  } catch {
+    const match = text.match(/```(?:json)?\s*([\s\S]*?)```/);
+    if (match) return JSON.parse(match[1].trim());
+    return { results: [] };
+  }
+}
+
 export async function getComparisonRecommendation(moduleA: string, moduleB: string, apiKey: string): Promise<string> {
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
