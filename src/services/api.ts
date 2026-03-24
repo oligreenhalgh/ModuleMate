@@ -26,6 +26,25 @@ export const updateModuleStatus = (code: string, status: string) =>
 // Majors
 export const getMajors = () => request<Major[]>('/majors');
 export const getMajor = (id: string) => request<Major>(`/majors/${id}`);
+export interface PathSemester {
+  name: string;
+  modules: { code: string; name: string; credits: number }[];
+}
+export interface MajorPath {
+  semesters: PathSemester[];
+  summary: string;
+}
+export const getMajorPath = (id: string) => request<MajorPath>(`/majors/${id}/path`);
+export interface SearchResult {
+  name: string;
+  description: string;
+  relevance: string;
+}
+export const searchMajorsAI = (query: string) =>
+  request<{ results: SearchResult[] }>('/majors/search', {
+    method: 'POST',
+    body: JSON.stringify({ query }),
+  });
 
 // Schedule
 export interface ScheduleEntry {
