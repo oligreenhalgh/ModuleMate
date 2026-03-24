@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Sparkles, TrendingUp, AlertTriangle, Plus } from 'lucide-react';
+import { Send, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Plus, ChevronDown, ChevronUp } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { toast } from 'sonner';
 import { getThreads, createThread, getMessages, sendMessage, getStats, Thread, UserStats } from '../services/api';
@@ -14,6 +14,7 @@ export function HomeView() {
   const [activeThreadId, setActiveThreadId] = useState<string | null>(null);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loadingThreads, setLoadingThreads] = useState(true);
+  const [alertsExpanded, setAlertsExpanded] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -282,10 +283,18 @@ export function HomeView() {
                 <span className="text-xs font-mono text-secondary">/ {stats ? stats.gpa_max.toFixed(2) : '5.00'}</span>
               </div>
               <div className="mt-4 flex items-center gap-2">
-                <TrendingUp size={14} className="text-secondary" />
-                <span className="text-[10px] text-on-surface-variant/60">
-                  {stats ? `${stats.gpa_trend >= 0 ? '+' : ''}${stats.gpa_trend.toFixed(2)} from last sem` : '...'}
+                {stats && stats.gpa_trend >= 0 ? (
+                  <TrendingUp size={14} className="text-green-400" />
+                ) : (
+                  <TrendingDown size={14} className="text-error" />
+                )}
+                <span className={cn(
+                  "text-xs font-mono font-bold",
+                  stats && stats.gpa_trend >= 0 ? "text-green-400" : "text-error"
+                )}>
+                  {stats ? `${stats.gpa_trend >= 0 ? '↑' : '↓'} ${Math.abs(stats.gpa_trend).toFixed(2)}` : '...'}
                 </span>
+                <span className="text-[10px] text-on-surface-variant/60">from last sem</span>
               </div>
             </div>
           </div>
@@ -320,23 +329,42 @@ export function HomeView() {
           </div>
 
           <div>
-            <h2 className="text-xs font-mono text-on-surface-variant/50 uppercase tracking-[0.2em] mb-4">Prerequisite Alert</h2>
-            <div className="space-y-3">
-              {stats && stats.alerts.length > 0 ? (
-                stats.alerts.map((alert, i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 bg-error/5 border-l-2 border-error">
-                    <AlertTriangle size={14} className="text-error" />
-                    <p className="text-[10px] leading-tight text-on-surface-variant">
-                      {alert.module} requires {alert.unmetPrereqs.join(', ')}.
-                    </p>
-                  </div>
-                ))
-              ) : stats ? (
-                <p className="text-[10px] text-on-surface-variant/40">No prerequisite alerts.</p>
-              ) : (
-                <div className="animate-pulse h-10 bg-surface-high rounded"></div>
+            <button
+              onClick={() => setAlertsExpanded(!alertsExpanded)}
+              className="w-full flex items-center justify-between mb-4 group"
+            >
+              <div className="flex items-center gap-2">
+                <h2 className="text-xs font-mono text-on-surface-variant/50 uppercase tracking-[0.2em]">Prerequisite Alerts</h2>
+                {stats && stats.alerts.length > 0 && (
+                  <span className="text-[10px] font-mono font-bold bg-error/20 text-error px-1.5 py-0.5 rounded-full">
+                    {stats.alerts.length}
+                  </span>
+                )}
+              </div>
+              {stats && stats.alerts.length > 0 && (
+                alertsExpanded
+                  ? <ChevronUp size={14} className="text-on-surface-variant/50 group-hover:text-on-surface" />
+                  : <ChevronDown size={14} className="text-on-surface-variant/50 group-hover:text-on-surface" />
               )}
-            </div>
+            </button>
+            {(alertsExpanded || (stats && stats.alerts.length === 0)) && (
+              <div className="space-y-3">
+                {stats && stats.alerts.length > 0 ? (
+                  stats.alerts.map((alert, i) => (
+                    <div key={i} className="flex items-center gap-3 p-3 bg-error/5 border-l-2 border-error">
+                      <AlertTriangle size={14} className="text-error shrink-0" />
+                      <p className="text-[10px] leading-tight text-on-surface-variant">
+                        <span className="font-mono font-bold text-error">{alert.module}</span> requires {alert.unmetPrereqs.join(', ')}.
+                      </p>
+                    </div>
+                  ))
+                ) : stats ? (
+                  <p className="text-[10px] text-on-surface-variant/40">No prerequisite alerts. You're on track! ✓</p>
+                ) : (
+                  <div className="animate-pulse h-10 bg-surface-high rounded"></div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </aside>

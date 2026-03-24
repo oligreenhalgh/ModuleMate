@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { Bell, User, Cpu } from 'lucide-react';
+import { getProfile } from '../services/api';
+import type { UserProfile } from '../services/api';
 
 export function TopBar() {
   const [connected, setConnected] = useState(true);
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     fetch('/api/health')
@@ -12,6 +15,10 @@ export function TopBar() {
       .catch(() => {
         setConnected(false);
       });
+
+    getProfile()
+      .then(setProfile)
+      .catch(() => {});
   }, []);
 
   return (
@@ -31,6 +38,17 @@ export function TopBar() {
         <button className="p-2 text-slate-400/70 hover:bg-primary/10 hover:text-primary transition-all rounded-lg">
           <Bell size={20} />
         </button>
+        {profile && (
+          <div className="hidden md:flex items-center gap-3 px-3 py-1.5 bg-surface rounded-full border border-outline-variant/20">
+            <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center text-primary">
+              <User size={14} />
+            </div>
+            <div className="text-right">
+              <p className="text-xs font-headline font-bold text-on-surface leading-tight">{profile.name}</p>
+              <p className="text-[9px] font-mono text-on-surface-variant/60">{profile.program}</p>
+            </div>
+          </div>
+        )}
         <button className="flex items-center gap-2 p-1 pl-3 bg-surface rounded-full border border-outline-variant/20 group">
           <span className="text-[10px] font-mono text-on-surface-variant/70">ADVISOR_MODE</span>
           <div className="w-8 h-8 rounded-full bg-surface-high flex items-center justify-center text-primary group-hover:bg-primary group-hover:text-white transition-colors">
