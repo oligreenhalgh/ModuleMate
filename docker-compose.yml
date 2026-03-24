@@ -1,0 +1,19 @@
+services:
+  modulemate:
+    build: .
+    ports:
+      - "8080:80"
+    environment:
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - SESSION_SECRET=${SESSION_SECRET:-modulemate-docker-secret}
+      - PORT=3001
+      - DATABASE_PATH=/app/data/modulemate.db
+      - NODE_ENV=production
+    volumes:
+      - modulemate-data:/app/data
+      - modulemate-uploads:/app/server/uploads
+    restart: unless-stopped
+
+volumes:
+  modulemate-data:
+  modulemate-uploads:

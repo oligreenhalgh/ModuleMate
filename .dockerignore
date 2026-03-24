@@ -1,0 +1,15 @@
+node_modules
+server/node_modules
+dist
+server/dist
+server/modulemate.db
+server/modulemate.db-wal
+server/modulemate.db-shm
+server/uploads
+.git
+.claude
+.env
+.env.local
+*.log
+coverage
+docs
