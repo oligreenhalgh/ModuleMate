@@ -1,22 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { Sparkles, ChevronRight, GraduationCap, X, Loader2, Search, BookOpen } from 'lucide-react';
+import { Sparkles, ChevronRight, GraduationCap, X, Loader2, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getMajors, getMajorPath, searchMajorsAI } from '../services/api';
-import type { MajorPath, SearchResult } from '../services/api';
+import { getMajors, searchMajorsAI } from '../services/api';
+import type { SearchResult } from '../services/api';
 import { Major } from '../types';
 import { cn } from '../lib/utils';
 
 export function ExplorerView() {
+  const navigate = useNavigate();
   const [majors, setMajors] = useState<Major[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
-
-  // Path preview state
-  const [pathMajor, setPathMajor] = useState<Major | null>(null);
-  const [pathData, setPathData] = useState<MajorPath | null>(null);
-  const [pathLoading, setPathLoading] = useState(false);
 
   useEffect(() => {
     getMajors()
@@ -39,19 +36,8 @@ export function ExplorerView() {
     }
   };
 
-  const handlePreviewPath = async (major: Major) => {
-    setPathMajor(major);
-    setPathData(null);
-    setPathLoading(true);
-    try {
-      const data = await getMajorPath(major.id);
-      setPathData(data);
-    } catch {
-      toast.error('Failed to generate path. Check your API key in Settings.');
-      setPathMajor(null);
-    } finally {
-      setPathLoading(false);
-    }
+  const handlePreviewPath = (major: Major) => {
+    navigate(`/graph?major=${major.id}`);
   };
 
   const handleCommandClick = (cmd: string) => {
@@ -204,20 +190,10 @@ export function ExplorerView() {
                   </div>
                   <button
                     onClick={() => handlePreviewPath(major)}
-                    disabled={pathLoading && pathMajor?.id === major.id}
-                    className="w-full py-2 border border-secondary text-secondary text-xs font-bold uppercase tracking-widest hover:bg-secondary/10 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-wait"
+                    className="w-full py-2 border border-secondary text-secondary text-xs font-bold uppercase tracking-widest hover:bg-secondary/10 transition-colors flex items-center justify-center gap-2"
                   >
-                    {pathLoading && pathMajor?.id === major.id ? (
-                      <>
-                        <Loader2 size={14} className="animate-spin" />
-                        <span>Generating Path...</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Preview Path</span>
-                        <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
-                      </>
-                    )}
+                    <span>Preview Path</span>
+                    <ChevronRight size={14} className="group-hover:translate-x-1 transition-transform" />
                   </button>
                 </div>
               </article>
@@ -225,82 +201,6 @@ export function ExplorerView() {
           )}
         </section>
       </div>
-
-      {/* Path Preview Modal */}
-      {pathMajor && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => { setPathMajor(null); setPathData(null); }}>
-          <div
-            className="bg-surface border border-outline-variant/30 rounded-lg w-full max-w-4xl max-h-[85vh] overflow-y-auto custom-scrollbar shadow-2xl m-4"
-            onClick={e => e.stopPropagation()}
-          >
-            {/* Modal Header */}
-            <div className="sticky top-0 bg-surface border-b border-outline-variant/20 px-8 py-5 flex items-center justify-between z-10">
-              <div>
-                <h2 className="font-headline text-xl font-bold tracking-tight">{pathMajor.name}</h2>
-                <p className="text-[10px] font-mono text-primary uppercase tracking-widest mt-1">Recommended Module Pathway</p>
-              </div>
-              <button
-                onClick={() => { setPathMajor(null); setPathData(null); }}
-                className="p-2 hover:bg-white/5 rounded transition-colors text-slate-400 hover:text-white"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Modal Body */}
-            <div className="px-8 py-6">
-              {pathLoading ? (
-                <div className="flex flex-col items-center justify-center py-16 gap-4">
-                  <Loader2 size={32} className="text-primary animate-spin" />
-                  <p className="text-sm text-on-surface-variant">Generating your academic pathway with AI...</p>
-                  <p className="text-[10px] font-mono text-slate-500">This may take a few seconds</p>
-                </div>
-              ) : pathData ? (
-                <>
-                  {/* Summary */}
-                  {pathData.summary && (
-                    <div className="mb-8 p-4 bg-primary/5 border-l-4 border-primary">
-                      <p className="text-sm text-on-surface-variant leading-relaxed">{pathData.summary}</p>
-                    </div>
-                  )}
-
-                  {/* Semesters Grid */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {pathData.semesters.map((sem, i) => (
-                      <div key={i} className="bg-surface-low border border-outline-variant/10 rounded overflow-hidden">
-                        <div className="bg-surface-high px-4 py-3 flex justify-between items-center border-b border-outline-variant/10">
-                          <h4 className="font-headline font-bold text-xs uppercase tracking-wider">{sem.name}</h4>
-                          <span className="font-mono text-[10px] text-secondary">
-                            {sem.modules.reduce((sum, m) => sum + m.credits, 0)} Credits
-                          </span>
-                        </div>
-                        <div className="p-3 space-y-2">
-                          {sem.modules.map((mod, j) => (
-                            <div key={j} className="flex items-center justify-between px-3 py-2 bg-surface/50 rounded border border-outline-variant/5">
-                              <div className="flex items-center gap-3">
-                                <BookOpen size={12} className="text-secondary" />
-                                <div>
-                                  <span className="font-mono text-[10px] text-secondary">{mod.code}</span>
-                                  <p className="text-xs text-on-surface">{mod.name}</p>
-                                </div>
-                              </div>
-                              <span className="font-mono text-[10px] text-slate-500">{mod.credits}MC</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="text-center py-16">
-                  <p className="text-sm text-on-surface-variant/50">Failed to generate path.</p>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
