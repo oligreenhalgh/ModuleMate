@@ -44,18 +44,21 @@ export function Sidebar() {
     getProfile()
       .then(setProfile)
       .catch(() => {});
+
+    const refreshCredits = () => {
+      getProfile().then(setProfile).catch(() => {});
+    };
+    window.addEventListener('credits-updated', refreshCredits);
+    return () => window.removeEventListener('credits-updated', refreshCredits);
   }, []);
 
+  const creditsRemaining = profile.ai_credits_max - profile.ai_credits_used;
   const creditPercent = profile.ai_credits_max > 0
-    ? (profile.ai_credits_used / profile.ai_credits_max) * 100
+    ? (creditsRemaining / profile.ai_credits_max) * 100
     : 0;
 
   return (
     <aside className="fixed left-0 top-0 h-full w-[250px] bg-background border-r border-outline-variant/20 flex flex-col pt-20 z-40">
-      <div className="px-6 mb-8">
-        <h2 className="text-lg font-black text-primary font-headline tracking-tighter">ModuleMate</h2>
-        <p className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500">AI University Advisor</p>
-      </div>
 
       <nav className="flex-1 px-3 space-y-1">
         {navItems.map((item) => (
@@ -86,7 +89,7 @@ export function Sidebar() {
           <div className="w-full bg-surface rounded-full h-1.5 mb-2">
             <div className="bg-primary h-1.5 rounded-full" style={{ width: `${creditPercent}%` }}></div>
           </div>
-          <p className="text-[10px] text-on-surface-variant font-mono">{profile.ai_credits_used}/{profile.ai_credits_max} AI Credits Used</p>
+          <p className="text-[10px] text-on-surface-variant font-mono">{creditsRemaining}/{profile.ai_credits_max} AI Credits Remaining</p>
         </div>
 
         <div className="mt-4 flex items-center gap-3 p-2 bg-surface rounded-lg border border-outline-variant/10">

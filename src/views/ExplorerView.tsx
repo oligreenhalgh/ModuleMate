@@ -2,7 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { Sparkles, ChevronRight, GraduationCap, X, Loader2, Search, BookOpen, Layers, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getMajors, searchMajorsAI, getModules, updateModuleStatus } from '../services/api';
+import { getMajors, searchMajorsAI, getUoBModules, updateModuleStatus } from '../services/api';
 import type { SearchResult } from '../services/api';
 import { Major, Module } from '../types';
 import { cn } from '../lib/utils';
@@ -12,8 +12,9 @@ type YearFilter = 'all' | '1' | '2' | '3' | '4';
 type StatusFilter = 'all' | 'completed' | 'available' | 'locked';
 type TypeFilter = 'all' | 'Core' | 'Elective';
 
-function getYearFromCode(code: string): string {
-  const match = code.match(/\d/);
+function getYearFromModule(mod: Module): string {
+  if ((mod as any).year) return String((mod as any).year);
+  const match = mod.code.match(/\d/);
   return match ? match[0] : '?';
 }
 
@@ -102,7 +103,7 @@ export function ExplorerView() {
   const [searchResults, setSearchResults] = useState<SearchResult[] | null>(null);
 
   useEffect(() => {
-    getModules()
+    getUoBModules()
       .then(setModules)
       .catch(() => toast.error('Failed to load modules.'))
       .finally(() => setModulesLoading(false));
@@ -115,7 +116,7 @@ export function ExplorerView() {
 
   const filteredModules = useMemo(() => {
     return modules.filter(m => {
-      if (yearFilter !== 'all' && getYearFromCode(m.code) !== yearFilter) return false;
+      if (yearFilter !== 'all' && getYearFromModule(m) !== yearFilter) return false;
       if (statusFilter !== 'all' && m.status !== statusFilter) return false;
       if (typeFilter !== 'all' && m.type !== typeFilter) return false;
       if (moduleSearch) {
@@ -362,7 +363,7 @@ export function ExplorerView() {
                     </div>
                     <div className="bg-surface-high p-4 rounded">
                       <p className="text-[9px] font-mono text-slate-500 uppercase mb-1">Year</p>
-                      <p className="text-lg font-headline font-bold text-on-surface">Y{getYearFromCode(selectedModule.code)}</p>
+                      <p className="text-lg font-headline font-bold text-on-surface">Y{getYearFromModule(selectedModule)}</p>
                     </div>
                   </div>
 

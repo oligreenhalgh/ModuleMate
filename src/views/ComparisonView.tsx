@@ -7,22 +7,22 @@ import {
   PolarRadiusAxis,
   ResponsiveContainer
 } from 'recharts';
-import { getModules, getModule, compareModules } from '../services/api';
+import { getUoBModules, compareModules } from '../services/api';
 import type { Module } from '../types';
 
 export function ComparisonView() {
   const [modules, setModules] = useState<Module[]>([]);
   const [moduleA, setModuleA] = useState<Module | null>(null);
   const [moduleB, setModuleB] = useState<Module | null>(null);
-  const [codeA, setCodeA] = useState('CS3230');
-  const [codeB, setCodeB] = useState('CS1010');
+  const [codeA, setCodeA] = useState('06-34253');
+  const [codeB, setCodeB] = useState('06-34248');
   const [recommendation, setRecommendation] = useState(
     '"Select two modules and click Compare to get an AI recommendation."'
   );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    getModules().then(mods => {
+    getUoBModules().then(mods => {
       setModules(mods);
       const a = mods.find(m => m.code === codeA);
       const b = mods.find(m => m.code === codeB);

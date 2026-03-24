@@ -25,10 +25,16 @@ export interface Major {
   foundationalModules: string[];
 }
 
+export interface RoadmapData {
+  semesters: { name: string; modules: { code: string; name: string; credits: number }[] }[];
+  summary: string;
+}
+
 export interface Message {
   id: string;
   role: 'user' | 'model';
   content: string;
   timestamp: Date;
   modules?: string[];
+  roadmap?: RoadmapData;
 }

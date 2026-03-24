@@ -38,14 +38,44 @@ router.get('/', (_req, res) => {
   res.json(modules);
 });
 
+/** GET /uob — all UoB BSc CS modules with prerequisites and unlocks */
+router.get('/uob', (_req, res) => {
+  const db = getDb();
+  const rows = db.prepare('SELECT * FROM uob_modules').all() as any[];
+  const allPrereqs = db.prepare('SELECT module_code, prerequisite_code FROM uob_prerequisites').all() as any[];
+
+  const prereqMap = new Map<string, string[]>();
+  const unlockMap = new Map<string, string[]>();
+  for (const row of allPrereqs) {
+    if (!prereqMap.has(row.module_code)) prereqMap.set(row.module_code, []);
+    prereqMap.get(row.module_code)!.push(row.prerequisite_code);
+    if (!unlockMap.has(row.prerequisite_code)) unlockMap.set(row.prerequisite_code, []);
+    unlockMap.get(row.prerequisite_code)!.push(row.module_code);
+  }
+
+  const modules = rows.map(row => {
+    const { historical_a_rate, avg_weekly_hours, ...rest } = row;
+    return {
+      ...rest,
+      historicalARate: historical_a_rate,
+      avgWeeklyHours: avg_weekly_hours,
+      status: 'available',
+      prerequisites: prereqMap.get(row.code) || [],
+      unlocks: unlockMap.get(row.code) || [],
+    };
+  });
+
+  res.json(modules);
+});
+
 /** GET /compare — compare two modules */
 router.get('/compare', async (req, res) => {
   const { a, b } = req.query;
   if (!a || !b) return res.status(400).json({ error: 'Parameters a and b required' });
 
   const db = getDb();
-  const modA = db.prepare('SELECT * FROM modules WHERE code = ?').get(a) as any;
-  const modB = db.prepare('SELECT * FROM modules WHERE code = ?').get(b) as any;
+  const modA = db.prepare('SELECT * FROM uob_modules WHERE code = ?').get(a) as any;
+  const modB = db.prepare('SELECT * FROM uob_modules WHERE code = ?').get(b) as any;
 
   if (!modA || !modB) return res.status(404).json({ error: 'Module not found' });
 

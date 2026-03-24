@@ -13,12 +13,12 @@ import { Toaster } from 'sonner';
 export default function App() {
   return (
     <Router>
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="h-screen flex flex-col bg-background overflow-hidden">
         <Toaster position="top-right" theme="dark" richColors />
         <TopBar />
-        <div className="flex flex-1 pt-16">
+        <div className="flex flex-1 pt-16 overflow-hidden">
           <Sidebar />
-          <main className="flex-1 ml-0 md:ml-[250px] flex overflow-hidden">
+          <main className="flex-1 ml-0 md:ml-[250px] flex overflow-hidden pb-14">
             <Routes>
               <Route path="/" element={<HomeView />} />
               <Route path="/explorer" element={<ExplorerView />} />

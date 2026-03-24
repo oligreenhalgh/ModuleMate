@@ -24,7 +24,10 @@ export function TopBar() {
   return (
     <header className="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-16 bg-background/60 backdrop-blur-md border-b border-outline-variant/20 shadow-2xl shadow-primary/5">
       <div className="flex items-center gap-4">
-        <span className="text-xl font-bold tracking-tighter text-primary font-headline">ModuleMate</span>
+        <div className="flex flex-col">
+          <span className="text-xl font-bold tracking-tighter text-primary font-headline leading-tight">ModuleMate</span>
+          <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500">AI University Advisor</span>
+        </div>
         <div className="h-4 w-px bg-outline-variant/30 hidden md:block"></div>
         <div className="hidden md:flex items-center gap-2 px-3 py-1 bg-primary/10 rounded-full">
           <div className={`w-2 h-2 rounded-full ${connected ? 'bg-primary ai-pulse' : 'bg-error'}`}></div>

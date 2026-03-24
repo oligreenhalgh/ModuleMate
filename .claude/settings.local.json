@@ -24,7 +24,14 @@
       "Bash(curl:*)",
       "Bash(echo $GEMINI_API_KEY)",
       "Bash(ls -la \"C:/Users/Oli/Downloads/ModuleMate/.env\"*)",
-      "Bash(node -e \":*)"
+      "Bash(node -e \":*)",
+      "Bash(python3 -m json.tool)",
+      "Bash(taskkill //PID 49780 //F)",
+      "Bash(taskkill //PID 25092 //F)",
+      "Bash(taskkill //PID 32624 //F)",
+      "Bash(taskkill //PID 42204 //F)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(f''''{len\\(d\\)} modules''''\\); print\\(f''''{sum\\(len\\(m.get\\(\"\"prerequisites\"\",[]\\)\\) for m in d\\)} prereq links''''\\)\")",
+      "Bash(node -e \"let d='''''''';process.stdin.on\\(''''data'''',c=>d+=c\\);process.stdin.on\\(''''end'''',\\(\\)=>{const m=JSON.parse\\(d\\);console.log\\(m.length+'''' modules''''\\);console.log\\(m.reduce\\(\\(s,x\\)=>s+x.prerequisites.length,0\\)+'''' prereq links''''\\);console.log\\(m.reduce\\(\\(s,x\\)=>s+x.unlocks.length,0\\)+'''' unlock links''''\\)}\\)\")"
     ]
   }
 }

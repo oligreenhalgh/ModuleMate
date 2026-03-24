@@ -10,7 +10,7 @@ import {
   Plus,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getSchedule, getStats, deleteScheduleEntry, addScheduleEntry, getModules } from '../services/api';
+import { getSchedule, getStats, deleteScheduleEntry, addScheduleEntry, getUoBModules } from '../services/api';
 import type { ScheduleEntry, Conflict, UserStats } from '../services/api';
 import type { Module } from '../types';
 import { toast } from 'sonner';
@@ -47,8 +47,8 @@ export function ScheduleView() {
   useEffect(() => { fetchData(); }, []);
 
   useEffect(() => {
-    getModules()
-      .then(mods => setAvailableModules(mods.filter(m => m.status !== 'locked')))
+    getUoBModules()
+      .then(mods => setAvailableModules(mods))
       .catch(() => {});
   }, []);
 
@@ -65,7 +65,7 @@ export function ScheduleView() {
         course_name: mod?.name || addForm.module_code,
         schedule: addForm.schedule || 'TBD',
         professor: addForm.professor || 'TBD',
-        credits: mod?.credits || 4,
+        credits: mod?.credits || 20,
         semester: addForm.semester || 'Semester 1',
       });
       toast.success(`${addForm.module_code} added to schedule!`);
