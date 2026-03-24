@@ -4,7 +4,27 @@
       "Bash(find /c/Users/Oli/Downloads/ModuleMate -type f ! -path */node_modules/* ! -path */.git/* ! -path */dist/* -name *.ts -o -name *.tsx -o -name *.py -o -name *.js)",
       "Bash(git init:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(npm install:*)",
+      "Bash(npx vitest:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm run:*)",
+      "Bash(node_modules/.bin/tsc --noEmit)",
+      "Bash(npx vite:*)",
+      "Bash(curl -s http://localhost:3001/api/health)",
+      "Bash(curl -s http://localhost:3000/api/health)",
+      "Bash(curl -s http://localhost:3001/api/majors)",
+      "Bash(curl -s http://localhost:3000/api/majors)",
+      "Bash(curl -s http://localhost:3000/)",
+      "Bash(netstat -ano)",
+      "Bash(powershell.exe -c \"Get-NetTCPConnection -State Listen | Where-Object {3000..3010 -contains $_ocalPort -or $_ocalPort -eq 5173} | Select-Object LocalPort,OwningProcess | Format-Table -AutoSize\")",
+      "Bash(powershell.exe -c \"Get-Process -Id 8104 -ErrorAction SilentlyContinue | Stop-Process -Force\")",
+      "Bash(curl -s http://localhost:5173/api/majors)",
+      "Bash(curl -s http://localhost:5173/api/majors/cs/path)",
+      "Bash(curl:*)",
+      "Bash(echo $GEMINI_API_KEY)",
+      "Bash(ls -la \"C:/Users/Oli/Downloads/ModuleMate/.env\"*)",
+      "Bash(node -e \":*)"
     ]
   }
 }
