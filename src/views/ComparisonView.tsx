@@ -130,6 +130,45 @@ export function ComparisonView() {
 
           {/* Stats Section */}
           <div className="space-y-6">
+            {/* Quick Facts */}
+            {moduleA && moduleB && (
+              <div className="bg-surface p-6 border border-outline-variant/20 rounded-lg">
+                <h3 className="text-[10px] font-mono text-secondary uppercase tracking-widest mb-4">Quick Facts</h3>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-[9px] font-mono text-slate-500 uppercase mb-1">{moduleA.code}</p>
+                    <p className="text-sm font-bold text-on-surface mb-1">{moduleA.credits} MC · {moduleA.type}</p>
+                    <p className="text-[10px] text-slate-400">{moduleA.avgWeeklyHours}h/week</p>
+                    {moduleA.prerequisites.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-[9px] font-mono text-slate-500 uppercase mb-1">Prerequisites</p>
+                        <div className="flex flex-wrap gap-1">
+                          {moduleA.prerequisites.map(p => (
+                            <span key={p} className="text-[9px] font-mono bg-surface-high px-1.5 py-0.5 rounded text-slate-300">{p}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-mono text-slate-500 uppercase mb-1">{moduleB.code}</p>
+                    <p className="text-sm font-bold text-on-surface mb-1">{moduleB.credits} MC · {moduleB.type}</p>
+                    <p className="text-[10px] text-slate-400">{moduleB.avgWeeklyHours}h/week</p>
+                    {moduleB.prerequisites.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-[9px] font-mono text-slate-500 uppercase mb-1">Prerequisites</p>
+                        <div className="flex flex-wrap gap-1">
+                          {moduleB.prerequisites.map(p => (
+                            <span key={p} className="text-[9px] font-mono bg-surface-high px-1.5 py-0.5 rounded text-slate-300">{p}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="bg-surface p-6 border border-outline-variant/20 rounded-lg">
               <h3 className="text-[10px] font-mono text-primary uppercase tracking-widest mb-4">Historical Performance</h3>
               <div className="space-y-4">

@@ -9,3 +9,4 @@ coverage/
 server/modulemate.db
 server/uploads/
 server/dist/
+server/modulemate.db*

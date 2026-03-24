@@ -1,8 +1,11 @@
 export interface ScheduleEntry {
   id: string;
   module_code: string;
+  course_name: string;
   schedule: string;
+  professor: string;
   credits: number;
+  semester: string;
 }
 
 export interface Conflict {
