@@ -2,6 +2,8 @@ import express from 'express';
 import cors from 'cors';
 import session from 'express-session';
 import { getDb } from './db.js';
+import modulesRouter from './routes/modules.js';
+import majorsRouter from './routes/majors.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -23,8 +25,9 @@ app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Route mounting (added in subsequent tasks)
-// app.use('/api/modules', modulesRouter);
+// Route mounting
+app.use('/api/modules', modulesRouter);
+app.use('/api/majors', majorsRouter);
 // etc.
 
 if (process.env.NODE_ENV !== 'test') {
