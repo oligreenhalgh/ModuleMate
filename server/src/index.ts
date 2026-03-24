@@ -4,6 +4,11 @@ import session from 'express-session';
 import { getDb } from './db.js';
 import modulesRouter from './routes/modules.js';
 import majorsRouter from './routes/majors.js';
+import scheduleRouter from './routes/schedule.js';
+import chatRouter from './routes/chat.js';
+import settingsRouter from './routes/settings.js';
+import userRouter from './routes/user.js';
+import transcriptsRouter from './routes/transcripts.js';
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -28,6 +33,11 @@ app.get('/api/health', (_req, res) => {
 // Route mounting
 app.use('/api/modules', modulesRouter);
 app.use('/api/majors', majorsRouter);
+app.use('/api/schedule', scheduleRouter);
+app.use('/api/chat', chatRouter);
+app.use('/api/settings', settingsRouter);
+app.use('/api/user', userRouter);
+app.use('/api/transcripts', transcriptsRouter);
 // etc.
 
 if (process.env.NODE_ENV !== 'test') {
