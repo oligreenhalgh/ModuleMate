@@ -1,3 +1,11 @@
+import { config } from 'dotenv';
+import { resolve, dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+// Load .env from project root (two levels up from server/src/)
+config({ path: resolve(__dirname, '..', '..', '.env') });
+
 import express from 'express';
 import cors from 'cors';
 import session from 'express-session';

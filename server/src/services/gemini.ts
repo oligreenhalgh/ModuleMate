@@ -8,7 +8,7 @@ export async function chatWithGemini(
 ): Promise<{ content: string; modules: string[] }> {
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-2.5-flash',
     contents: messages.map(m => ({
       role: m.role as 'user' | 'model',
       parts: [{ text: m.content }],
@@ -28,7 +28,7 @@ export async function generateMajorPath(
 ): Promise<{ semesters: { name: string; modules: { code: string; name: string; credits: number }[] }[]; summary: string }> {
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     contents: [{
       role: 'user',
       parts: [{ text: `Generate a 4-year (8 semester) recommended module pathway for a "${majorName}" degree. Foundational modules include: ${foundationalModules.join(', ')}.
@@ -62,7 +62,7 @@ export async function searchMajors(
 ): Promise<{ results: { name: string; description: string; relevance: string }[] }> {
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
-    model: 'gemini-2.0-flash',
+    model: 'gemini-2.5-flash',
     contents: [{
       role: 'user',
       parts: [{ text: `The user searched for: "${query}". Suggest 3 university degree specializations related to this query.
@@ -89,7 +89,7 @@ Return ONLY valid JSON (no markdown fences):
 export async function getComparisonRecommendation(moduleA: string, moduleB: string, apiKey: string): Promise<string> {
   const ai = new GoogleGenAI({ apiKey });
   const response = await ai.models.generateContent({
-    model: 'gemini-3-flash-preview',
+    model: 'gemini-2.5-flash',
     contents: [{ role: 'user', parts: [{ text: `Compare these two university modules: ${moduleA} vs ${moduleB}. Consider workload, difficulty, career relevance. Be concise (2-3 sentences).` }] }],
     config: { systemInstruction: SYSTEM_INSTRUCTION },
   });

@@ -34,7 +34,9 @@ export function SettingsView() {
       try {
         const [s, t] = await Promise.all([getSettings(), getTranscripts()]);
         setSettings(s);
-        setApiKeyInput(s.gemini_api_key || '');
+        // Don't populate apiKeyInput with masked value — keep it empty
+        // so user must type fresh key. Masked value shown as placeholder.
+        setApiKeyInput('');
         setTranscripts(t);
       } catch (e: any) {
         toast.error('Failed to load settings');
@@ -55,8 +57,18 @@ export function SettingsView() {
   };
 
   const handleSaveApiKey = async () => {
+    if (!apiKeyInput.trim()) {
+      toast.error('Please enter a valid API key');
+      return;
+    }
+    if (apiKeyInput.includes('••')) {
+      toast.error('Please enter a fresh API key, not the masked value');
+      return;
+    }
     try {
       await updateSettings({ gemini_api_key: apiKeyInput });
+      setSettings(prev => ({ ...prev, gemini_api_key: '••••••••' + apiKeyInput.slice(-4) }));
+      setApiKeyInput('');
       toast.success('API key saved');
     } catch {
       toast.error('Failed to save API key');
@@ -122,9 +134,9 @@ export function SettingsView() {
                   <input
                     className="w-full bg-surface-low border-b border-outline-variant/20 focus:border-primary outline-none py-3 px-4 font-mono text-sm text-on-surface transition-all"
                     type={apiKeyVisible ? 'text' : 'password'}
-                    value={apiKeyVisible ? apiKeyInput : maskedKey}
-                    onChange={(e) => { setApiKeyInput(e.target.value); }}
-                    readOnly={!apiKeyVisible}
+                    value={apiKeyInput}
+                    onChange={(e) => setApiKeyInput(e.target.value)}
+                    placeholder={settings.gemini_api_key || 'Enter your Gemini API key'}
                   />
                   <button
                     className="absolute right-16 text-outline-variant hover:text-primary transition-colors"
