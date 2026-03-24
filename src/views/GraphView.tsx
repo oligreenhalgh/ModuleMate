@@ -10,7 +10,7 @@ import {
   BookOpen,
 } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { getModules, getMajorPath, getMajor, addScheduleEntry } from '../services/api';
+import { getUoBModules, getMajorPath, getMajor, addScheduleEntry, getSchedule } from '../services/api';
 import type { MajorPath } from '../services/api';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
@@ -149,19 +149,42 @@ export function GraphView() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const majorId = searchParams.get('major');
+  const isRoadmap = searchParams.get('roadmap') === 'true';
 
   const [modules, setModules] = useState<Module[]>([]);
   const [pathData, setPathData] = useState<MajorPath | null>(null);
   const [majorName, setMajorName] = useState('');
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [loading, setLoading] = useState(true);
+  const [scheduledCodes, setScheduledCodes] = useState<Set<string>>(new Set());
   const [zoom, setZoom] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [dragging, setDragging] = useState(false);
   const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
+  // Fetch scheduled modules
   useEffect(() => {
-    if (majorId) {
+    getSchedule()
+      .then(data => setScheduledCodes(new Set(data.entries.map(e => e.module_code))))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (isRoadmap) {
+      // Load AI-generated roadmap from sessionStorage
+      try {
+        const stored = sessionStorage.getItem('roadmap');
+        if (stored) {
+          const roadmap = JSON.parse(stored) as MajorPath;
+          setPathData(roadmap);
+          setMajorName('Your AI Roadmap');
+          sessionStorage.removeItem('roadmap');
+        }
+      } catch {
+        toast.error('Failed to load roadmap data.');
+      }
+      setLoading(false);
+    } else if (majorId) {
       // Load AI-generated path for a major
       Promise.all([getMajor(majorId), getMajorPath(majorId)])
         .then(([major, path]) => {
@@ -171,23 +194,31 @@ export function GraphView() {
         .catch(() => toast.error('Failed to generate dependency graph.'))
         .finally(() => setLoading(false));
     } else {
-      // Default: load modules from DB
-      getModules()
+      // Default: load UoB modules
+      getUoBModules()
         .then(setModules)
         .catch(err => toast.error(err.message))
         .finally(() => setLoading(false));
     }
-  }, [majorId]);
+  }, [majorId, isRoadmap]);
 
   const { nodes, edges, width, height } = useMemo(() => {
+    let result;
     if (pathData && pathData.semesters.length > 0) {
-      return layoutNodes(pathData.semesters);
+      result = layoutNodes(pathData.semesters);
+    } else if (modules.length > 0) {
+      result = layoutModules(modules);
+    } else {
+      result = { nodes: [], edges: [], width: 800, height: 600 };
     }
-    if (modules.length > 0) {
-      return layoutModules(modules);
+    // Mark scheduled modules as completed (green)
+    if (scheduledCodes.size > 0) {
+      result.nodes = result.nodes.map(n =>
+        scheduledCodes.has(n.id) ? { ...n, status: 'completed' as const } : n
+      );
     }
-    return { nodes: [], edges: [], width: 800, height: 600 };
-  }, [pathData, modules]);
+    return result;
+  }, [pathData, modules, scheduledCodes]);
 
   const nodeMap = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
 
@@ -202,6 +233,7 @@ export function GraphView() {
         semester: node.semester,
       });
       toast.success(`${node.id} added to planner!`);
+      setScheduledCodes(prev => new Set([...prev, node.id]));
     } catch (err: any) {
       toast.error(err.message);
     }
@@ -245,15 +277,15 @@ export function GraphView() {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
-      {/* Header bar for major path mode */}
-      {majorId && (
+      {/* Header bar for major path / roadmap mode */}
+      {(majorId || isRoadmap) && (
         <div className="absolute top-4 left-4 z-20 flex items-center gap-3 p-3 bg-surface/90 backdrop-blur-xl border border-outline-variant/30 rounded-lg shadow-xl">
-          <button onClick={() => navigate('/explorer')} className="p-1.5 hover:bg-white/5 rounded transition-colors text-slate-400 hover:text-white">
+          <button onClick={() => navigate(isRoadmap ? '/' : '/explorer')} className="p-1.5 hover:bg-white/5 rounded transition-colors text-slate-400 hover:text-white">
             <ArrowLeft size={16} />
           </button>
           <div>
             <h3 className="font-headline font-bold text-sm">{majorName}</h3>
-            <p className="text-[10px] font-mono text-primary uppercase tracking-widest">Dependency Graph</p>
+            <p className="text-[10px] font-mono text-primary uppercase tracking-widest">{isRoadmap ? 'AI Roadmap' : 'Dependency Graph'}</p>
           </div>
           {pathData?.summary && (
             <div className="ml-4 pl-4 border-l border-outline-variant/20 max-w-sm">
@@ -438,7 +470,7 @@ export function GraphView() {
       <div className="absolute bottom-10 right-10 flex items-center gap-4 p-3 bg-surface/80 backdrop-blur-xl border border-outline-variant/30 rounded shadow-2xl z-10">
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded border-2 border-green-500/50 bg-surface-low"></div>
-          <span className="text-[9px] font-mono text-slate-400 uppercase">Completed</span>
+          <span className="text-[9px] font-mono text-slate-400 uppercase">Scheduled</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 rounded border-2 border-secondary bg-surface-high"></div>

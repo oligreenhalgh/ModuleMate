@@ -17,6 +17,7 @@ async function request<T>(path: string, opts?: RequestInit): Promise<T> {
 
 // Modules
 export const getModules = () => request<Module[]>('/modules');
+export const getUoBModules = () => request<Module[]>('/modules/uob');
 export const getModule = (code: string) => request<Module>(`/modules/${code}`);
 export const compareModules = (a: string, b: string) =>
   request<{ recommendation: string }>(`/modules/compare?a=${a}&b=${b}`);

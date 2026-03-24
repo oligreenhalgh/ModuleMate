@@ -6,7 +6,7 @@ const router = Router();
 const ALLOWED_FIELDS: Record<string, true> = {
   name: true, program: true, gpa: true, gpa_max: true, gpa_trend: true,
   total_credits: true, required_credits: true, major_credits: true,
-  major_required: true, ue_credits: true, ue_required: true, ai_credits_used: true
+  major_required: true, ue_credits: true, ue_required: true, ai_credits_used: true, ai_credits_max: true
 };
 
 /** GET /profile — returns user profile row (id=1) */
@@ -78,11 +78,11 @@ router.post('/reset', (_req, res) => {
   db.prepare('DELETE FROM chat_threads').run();
   db.prepare(`
     UPDATE user_profile SET
-      gpa = 0, gpa_max = 0, gpa_trend = 0,
-      total_credits = 0, required_credits = 0,
-      major_credits = 0, major_required = 0,
-      ue_credits = 0, ue_required = 0,
-      ai_credits_used = 0, ai_credits_max = 0
+      gpa = 68, gpa_max = 100, gpa_trend = 3,
+      total_credits = 40, required_credits = 360,
+      major_credits = 40, major_required = 280,
+      ue_credits = 0, ue_required = 80,
+      ai_credits_used = 0, ai_credits_max = 1000
     WHERE id = 1
   `).run();
 

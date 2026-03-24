@@ -763,17 +763,17 @@ function seed() {
   db.prepare(`
     UPDATE user_profile SET
       name = 'Alex Johnson',
-      program = 'BSc Computer Science (Year 3)',
-      gpa = 3.4,
-      gpa_max = 4.0,
-      gpa_trend = 0.15,
-      total_credits = 72,
-      required_credits = 120,
-      major_credits = 48,
-      major_required = 80,
-      ue_credits = 24,
-      ue_required = 40,
-      ai_credits_used = 127,
+      program = 'BSc Computer Science (Year 1)',
+      gpa = 68,
+      gpa_max = 100,
+      gpa_trend = 3,
+      total_credits = 40,
+      required_credits = 360,
+      major_credits = 40,
+      major_required = 280,
+      ue_credits = 0,
+      ue_required = 80,
+      ai_credits_used = 0,
       ai_credits_max = 1000
     WHERE id = 1
   `).run();

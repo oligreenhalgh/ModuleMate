@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Plus, ChevronDown, ChevronUp } from 'lucide-react';
+import { Send, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Plus, ChevronDown, ChevronUp, Map, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getThreads, createThread, getMessages, sendMessage, getStats, Thread, UserStats } from '../services/api';
+import { getThreads, createThread, getMessages, sendMessage, getStats, deleteThread, Thread, UserStats } from '../services/api';
 import { Message } from '../types';
 import { cn } from '../lib/utils';
 
 export function HomeView() {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -85,7 +87,7 @@ export function HomeView() {
     setIsTyping(true);
 
     try {
-      const aiResponse = await sendMessage(activeThreadId, input);
+      const aiResponse: any = await sendMessage(activeThreadId, input);
 
       const modelMsg: Message = {
         id: aiResponse.id,
@@ -93,9 +95,11 @@ export function HomeView() {
         content: aiResponse.content,
         timestamp: new Date(aiResponse.timestamp),
         modules: aiResponse.modules,
+        roadmap: aiResponse.roadmap || undefined,
       };
 
       setMessages(prev => [...prev, modelMsg]);
+      window.dispatchEvent(new Event('credits-updated'));
     } catch (error) {
       toast.error('Failed to send message. Please try again.');
       console.error('Send error:', error);
@@ -141,20 +145,46 @@ export function HomeView() {
                 key={thread.id}
                 onClick={() => handleThreadClick(thread.id)}
                 className={cn(
-                  "p-3 rounded transition-colors cursor-pointer",
+                  "p-3 rounded transition-colors cursor-pointer relative group/thread",
                   thread.id === activeThreadId
                     ? "bg-surface-high border-l-2 border-primary"
                     : "hover:bg-surface-high group"
                 )}
               >
-                <p className={cn(
-                  "text-xs font-medium truncate",
-                  thread.id === activeThreadId
-                    ? "text-on-surface"
-                    : "text-on-surface-variant group-hover:text-on-surface"
-                )}>
-                  {thread.title}
-                </p>
+                <div className="flex items-start justify-between gap-1">
+                  <p className={cn(
+                    "text-xs font-medium truncate flex-1",
+                    thread.id === activeThreadId
+                      ? "text-on-surface"
+                      : "text-on-surface-variant group-hover/thread:text-on-surface"
+                  )}>
+                    {thread.title}
+                  </p>
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      try {
+                        await deleteThread(thread.id);
+                        setThreads(prev => prev.filter(t => t.id !== thread.id));
+                        if (activeThreadId === thread.id) {
+                          const remaining = threads.filter(t => t.id !== thread.id);
+                          if (remaining.length > 0) {
+                            setActiveThreadId(remaining[0].id);
+                          } else {
+                            const newThread = await createThread('New Chat');
+                            setThreads([newThread]);
+                            setActiveThreadId(newThread.id);
+                            setMessages([]);
+                          }
+                        }
+                      } catch { toast.error('Failed to delete thread'); }
+                    }}
+                    className="p-1 rounded opacity-0 group-hover/thread:opacity-100 hover:bg-error/20 text-on-surface-variant/40 hover:text-error transition-all shrink-0"
+                    title="Delete chat"
+                  >
+                    <Trash2 size={12} />
+                  </button>
+                </div>
                 <p className="text-[10px] font-mono text-on-surface-variant/40 mt-1">
                   {new Date(thread.updated_at).toLocaleString(undefined, {
                     month: 'short',
@@ -175,8 +205,8 @@ export function HomeView() {
         <div className="xl:hidden flex items-center gap-6 px-6 py-3 bg-surface border-b border-outline-variant/20 overflow-x-auto">
           <div className="flex items-center gap-2 shrink-0">
             <TrendingUp size={14} className="text-secondary" />
-            <span className="text-xs font-mono text-on-surface font-bold">{stats ? stats.gpa.toFixed(2) : '--'}</span>
-            <span className="text-[10px] font-mono text-on-surface-variant/50">GPA</span>
+            <span className="text-xs font-mono text-on-surface font-bold">{stats ? `${Math.round(stats.gpa)}%` : '--'}</span>
+            <span className="text-[10px] font-mono text-on-surface-variant/50">Average</span>
           </div>
           <div className="w-px h-4 bg-outline-variant/20 shrink-0" />
           <div className="flex items-center gap-2 shrink-0">
@@ -220,11 +250,11 @@ export function HomeView() {
                   ? "bg-surface border-l-4 border-primary"
                   : "bg-surface-low border border-outline-variant/30"
               )}>
-                <div className="prose prose-invert prose-sm max-w-none">
+                <div className="chat-markdown">
                   <ReactMarkdown>{msg.content}</ReactMarkdown>
                 </div>
 
-                {msg.modules && (
+                {msg.modules && msg.modules.length > 0 && (
                   <div className="mt-4 flex flex-wrap gap-2">
                     {msg.modules.map(code => (
                       <div key={code} className="bg-surface-high px-3 py-1.5 rounded border border-outline-variant/30 flex items-center gap-2 group cursor-pointer hover:border-secondary transition-all">
@@ -232,6 +262,24 @@ export function HomeView() {
                         <Sparkles size={10} className="text-secondary opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                     ))}
+                  </div>
+                )}
+
+                {msg.roadmap && msg.roadmap.semesters.length > 0 && (
+                  <div className="mt-4">
+                    <button
+                      onClick={() => {
+                        sessionStorage.setItem('roadmap', JSON.stringify(msg.roadmap));
+                        navigate('/graph?roadmap=true');
+                      }}
+                      className="flex items-center gap-3 px-5 py-3 bg-primary/10 border border-primary/30 rounded hover:bg-primary/20 transition-all group"
+                    >
+                      <Map size={18} className="text-primary group-hover:scale-110 transition-transform" />
+                      <div className="text-left">
+                        <span className="text-sm font-headline font-bold text-primary">Generate Roadmap</span>
+                        <p className="text-[10px] font-mono text-primary/60">{msg.roadmap.semesters.length} semesters · {msg.roadmap.semesters.reduce((sum, s) => sum + s.modules.length, 0)} modules</p>
+                      </div>
+                    </button>
                   </div>
                 )}
               </div>
@@ -245,7 +293,7 @@ export function HomeView() {
           )}
         </div>
 
-        <div className="h-24 px-6 flex items-center bg-background border-t border-outline-variant/20">
+        <div className="h-24 shrink-0 px-6 flex items-center bg-background border-t border-outline-variant/20">
           <div className="w-full relative">
             <input
               value={input}
@@ -277,10 +325,9 @@ export function HomeView() {
           <div>
             <h2 className="text-xs font-mono text-on-surface-variant/50 uppercase tracking-[0.2em] mb-4">Academic Status</h2>
             <div className="bg-surface p-6 border border-outline-variant/10">
-              <p className="text-[10px] font-mono text-secondary uppercase mb-1">Current GPA</p>
+              <p className="text-[10px] font-mono text-secondary uppercase mb-1">Overall Average</p>
               <div className="flex items-baseline gap-2">
-                <span className="text-4xl font-headline font-bold text-on-surface">{stats ? stats.gpa.toFixed(2) : '--'}</span>
-                <span className="text-xs font-mono text-secondary">/ {stats ? stats.gpa_max.toFixed(2) : '5.00'}</span>
+                <span className="text-4xl font-headline font-bold text-on-surface">{stats ? `${Math.round(stats.gpa)}%` : '--'}</span>
               </div>
               <div className="mt-4 flex items-center gap-2">
                 {stats && stats.gpa_trend >= 0 ? (
@@ -292,7 +339,7 @@ export function HomeView() {
                   "text-xs font-mono font-bold",
                   stats && stats.gpa_trend >= 0 ? "text-green-400" : "text-error"
                 )}>
-                  {stats ? `${stats.gpa_trend >= 0 ? '↑' : '↓'} ${Math.abs(stats.gpa_trend).toFixed(2)}` : '...'}
+                  {stats ? `${stats.gpa_trend >= 0 ? '↑' : '↓'} ${Math.abs(stats.gpa_trend)}%` : '...'}
                 </span>
                 <span className="text-[10px] text-on-surface-variant/60">from last sem</span>
               </div>
