@@ -1,150 +1,412 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ZoomIn,
   ZoomOut,
-  Maximize,
   Focus,
   CheckCircle,
   PlusCircle,
-  Info
+  Loader2,
+  ArrowLeft,
+  BookOpen,
 } from 'lucide-react';
-import { getModules, addScheduleEntry } from '../services/api';
+import { useSearchParams, useNavigate } from 'react-router-dom';
+import { getModules, getMajorPath, getMajor, addScheduleEntry } from '../services/api';
+import type { MajorPath } from '../services/api';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
 import type { Module } from '../types';
 
+// --- Types for the graph ---
+
+interface GraphNode {
+  id: string;
+  name: string;
+  credits: number;
+  semester: string;
+  semesterIndex: number;
+  status: 'completed' | 'available' | 'locked';
+  x: number;
+  y: number;
+}
+
+interface GraphEdge {
+  from: string;
+  to: string;
+}
+
+// --- Layout helpers ---
+
+const NODE_W = 140;
+const NODE_H = 64;
+const COL_GAP = 200;
+const ROW_GAP = 90;
+const PAD_X = 80;
+const PAD_Y = 100;
+
+function layoutNodes(semesters: MajorPath['semesters']): { nodes: GraphNode[]; edges: GraphEdge[]; width: number; height: number } {
+  const nodes: GraphNode[] = [];
+  const edges: GraphEdge[] = [];
+  let maxRows = 0;
+
+  semesters.forEach((sem, col) => {
+    maxRows = Math.max(maxRows, sem.modules.length);
+    sem.modules.forEach((mod, row) => {
+      nodes.push({
+        id: mod.code,
+        name: mod.name,
+        credits: mod.credits,
+        semester: sem.name,
+        semesterIndex: col,
+        status: col === 0 ? 'available' : 'locked',
+        x: PAD_X + col * COL_GAP,
+        y: PAD_Y + row * ROW_GAP,
+      });
+    });
+  });
+
+  // Create edges: each module in semester N connects to modules in semester N+1
+  for (let col = 0; col < semesters.length - 1; col++) {
+    const currMods = semesters[col].modules;
+    const nextMods = semesters[col + 1].modules;
+    // Connect last module of current semester to first of next (prerequisite chain)
+    if (currMods.length > 0 && nextMods.length > 0) {
+      edges.push({
+        from: currMods[currMods.length - 1].code,
+        to: nextMods[0].code,
+      });
+    }
+  }
+
+  const width = PAD_X * 2 + semesters.length * COL_GAP;
+  const height = PAD_Y * 2 + maxRows * ROW_GAP;
+
+  return { nodes, edges, width, height };
+}
+
+function layoutModules(modules: Module[]): { nodes: GraphNode[]; edges: GraphEdge[]; width: number; height: number } {
+  // Topological sort by prerequisites to assign columns
+  const codeToMod = new Map(modules.map(m => [m.code, m]));
+  const depths = new Map<string, number>();
+
+  function getDepth(code: string): number {
+    if (depths.has(code)) return depths.get(code)!;
+    const mod = codeToMod.get(code);
+    if (!mod || mod.prerequisites.length === 0) { depths.set(code, 0); return 0; }
+    const d = 1 + Math.max(...mod.prerequisites.map(p => getDepth(p)));
+    depths.set(code, d);
+    return d;
+  }
+
+  modules.forEach(m => getDepth(m.code));
+
+  // Group by depth
+  const columns = new Map<number, Module[]>();
+  modules.forEach(m => {
+    const d = depths.get(m.code) || 0;
+    if (!columns.has(d)) columns.set(d, []);
+    columns.get(d)!.push(m);
+  });
+
+  const nodes: GraphNode[] = [];
+  const edges: GraphEdge[] = [];
+  let maxRows = 0;
+
+  const sortedCols = [...columns.entries()].sort((a, b) => a[0] - b[0]);
+  sortedCols.forEach(([col, mods], colIdx) => {
+    maxRows = Math.max(maxRows, mods.length);
+    mods.forEach((mod, row) => {
+      nodes.push({
+        id: mod.code,
+        name: mod.name,
+        credits: mod.credits,
+        semester: `Level ${col + 1}`,
+        semesterIndex: colIdx,
+        status: mod.status,
+        x: PAD_X + colIdx * COL_GAP,
+        y: PAD_Y + row * ROW_GAP,
+      });
+    });
+  });
+
+  // Create edges from prerequisites
+  modules.forEach(mod => {
+    mod.prerequisites.forEach(pre => {
+      if (codeToMod.has(pre)) {
+        edges.push({ from: pre, to: mod.code });
+      }
+    });
+  });
+
+  const width = PAD_X * 2 + sortedCols.length * COL_GAP;
+  const height = PAD_Y * 2 + maxRows * ROW_GAP;
+
+  return { nodes, edges, width, height };
+}
+
+// --- Component ---
+
 export function GraphView() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const majorId = searchParams.get('major');
+
   const [modules, setModules] = useState<Module[]>([]);
-  const [selectedModule, setSelectedModule] = useState<Module | undefined>(undefined);
+  const [pathData, setPathData] = useState<MajorPath | null>(null);
+  const [majorName, setMajorName] = useState('');
+  const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
   const [loading, setLoading] = useState(true);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [dragging, setDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
 
   useEffect(() => {
-    getModules()
-      .then((data) => {
-        setModules(data);
-        setSelectedModule(data.find(m => m.code === 'CS3230'));
-      })
-      .catch((err) => toast.error(err.message))
-      .finally(() => setLoading(false));
-  }, []);
+    if (majorId) {
+      // Load AI-generated path for a major
+      Promise.all([getMajor(majorId), getMajorPath(majorId)])
+        .then(([major, path]) => {
+          setMajorName(major.name);
+          setPathData(path);
+        })
+        .catch(() => toast.error('Failed to generate dependency graph.'))
+        .finally(() => setLoading(false));
+    } else {
+      // Default: load modules from DB
+      getModules()
+        .then(setModules)
+        .catch(err => toast.error(err.message))
+        .finally(() => setLoading(false));
+    }
+  }, [majorId]);
 
-  const handleAddToPlanner = async () => {
-    if (!selectedModule) return;
+  const { nodes, edges, width, height } = useMemo(() => {
+    if (pathData && pathData.semesters.length > 0) {
+      return layoutNodes(pathData.semesters);
+    }
+    if (modules.length > 0) {
+      return layoutModules(modules);
+    }
+    return { nodes: [], edges: [], width: 800, height: 600 };
+  }, [pathData, modules]);
+
+  const nodeMap = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
+
+  const handleAddToPlanner = async (node: GraphNode) => {
     try {
       await addScheduleEntry({
-        module_code: selectedModule.code,
-        course_name: selectedModule.name,
+        module_code: node.id,
+        course_name: node.name,
         schedule: 'TBD',
         professor: 'TBD',
-        credits: selectedModule.credits,
-        semester: 'Next Semester',
+        credits: node.credits,
+        semester: node.semester,
       });
-      toast.success(`${selectedModule.code} added to planner!`);
+      toast.success(`${node.id} added to planner!`);
     } catch (err: any) {
       toast.error(err.message);
     }
   };
 
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('[data-node]')) return;
+    setDragging(true);
+    setDragStart({ x: e.clientX - pan.x, y: e.clientY - pan.y });
+  }, [pan]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (!dragging) return;
+    setPan({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y });
+  }, [dragging, dragStart]);
+
+  const handleMouseUp = useCallback(() => setDragging(false), []);
+
+  const fitToScreen = () => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  };
+
+  if (loading) {
+    return (
+      <div className="flex-1 h-screen flex flex-col items-center justify-center bg-background gap-4">
+        <Loader2 size={32} className="text-primary animate-spin" />
+        <p className="text-sm text-on-surface-variant">
+          {majorId ? 'Generating dependency graph with AI...' : 'Loading modules...'}
+        </p>
+        {majorId && <p className="text-[10px] font-mono text-slate-500">This may take a few seconds</p>}
+      </div>
+    );
+  }
+
   return (
-    <div className="flex-1 h-screen relative overflow-hidden bg-background canvas-grid">
-      {/* SVG Connections */}
-      <svg className="absolute inset-0 w-full h-full pointer-events-none">
-        <path d="M 180 300 C 250 300, 250 200, 320 200" fill="none" stroke="#2A2A35" strokeWidth="1.5" />
-        <path d="M 180 300 C 250 300, 250 400, 320 400" fill="none" stroke="#2A2A35" strokeWidth="1.5" />
-        <path d="M 440 200 C 510 200, 510 300, 580 300" fill="none" stroke="#2A2A35" strokeWidth="1.5" />
-        <path d="M 440 400 C 510 400, 510 300, 580 300" fill="none" stroke="#2A2A35" strokeWidth="1.5" />
+    <div
+      className="flex-1 h-screen relative overflow-hidden bg-background canvas-grid cursor-grab active:cursor-grabbing"
+      onMouseDown={handleMouseDown}
+      onMouseMove={handleMouseMove}
+      onMouseUp={handleMouseUp}
+      onMouseLeave={handleMouseUp}
+    >
+      {/* Header bar for major path mode */}
+      {majorId && (
+        <div className="absolute top-4 left-4 z-20 flex items-center gap-3 p-3 bg-surface/90 backdrop-blur-xl border border-outline-variant/30 rounded-lg shadow-xl">
+          <button onClick={() => navigate('/explorer')} className="p-1.5 hover:bg-white/5 rounded transition-colors text-slate-400 hover:text-white">
+            <ArrowLeft size={16} />
+          </button>
+          <div>
+            <h3 className="font-headline font-bold text-sm">{majorName}</h3>
+            <p className="text-[10px] font-mono text-primary uppercase tracking-widest">Dependency Graph</p>
+          </div>
+          {pathData?.summary && (
+            <div className="ml-4 pl-4 border-l border-outline-variant/20 max-w-sm">
+              <p className="text-[10px] text-slate-400 leading-relaxed">{pathData.summary}</p>
+            </div>
+          )}
+        </div>
+      )}
 
-        {/* Active Path */}
-        <path
-          className="stroke-primary"
-          d="M 580 300 C 650 300, 650 300, 720 300"
-          fill="none"
-          strokeWidth="2"
-          strokeDasharray="5"
-          style={{ filter: 'drop-shadow(0 0 5px #B026FF)' }}
-        />
-      </svg>
+      {/* Canvas */}
+      <div
+        style={{
+          transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+          transformOrigin: '0 0',
+          width,
+          height,
+        }}
+        className="absolute transition-transform duration-75"
+      >
+        {/* SVG Edges */}
+        <svg className="absolute inset-0 pointer-events-none" style={{ width, height }}>
+          {edges.map((edge, i) => {
+            const from = nodeMap.get(edge.from);
+            const to = nodeMap.get(edge.to);
+            if (!from || !to) return null;
+            const x1 = from.x + NODE_W;
+            const y1 = from.y + NODE_H / 2;
+            const x2 = to.x;
+            const y2 = to.y + NODE_H / 2;
+            const cx1 = x1 + (x2 - x1) * 0.4;
+            const cx2 = x2 - (x2 - x1) * 0.4;
+            const isActive = selectedNode && (selectedNode.id === edge.from || selectedNode.id === edge.to);
+            return (
+              <path
+                key={i}
+                d={`M ${x1} ${y1} C ${cx1} ${y1}, ${cx2} ${y2}, ${x2} ${y2}`}
+                fill="none"
+                stroke={isActive ? '#B026FF' : '#2A2A35'}
+                strokeWidth={isActive ? 2 : 1.5}
+                strokeDasharray={isActive ? '5' : undefined}
+                style={isActive ? { filter: 'drop-shadow(0 0 5px #B026FF)' } : undefined}
+              />
+            );
+          })}
+        </svg>
 
-      {/* Nodes */}
-      <div className="absolute inset-0 p-12">
-        <div className="absolute" style={{ left: 60, top: 270 }}>
-          <ModuleNode code="CS1010" status="completed" />
-        </div>
-        <div className="absolute" style={{ left: 320, top: 170 }}>
-          <ModuleNode code="CS2030" status="completed" />
-        </div>
-        <div className="absolute" style={{ left: 320, top: 370 }}>
-          <ModuleNode code="CS2040" status="completed" />
-        </div>
-        <div className="absolute" style={{ left: 580, top: 270 }}>
-          <ModuleNode
-            code="CS3230"
-            status="available"
-            active
-            onClick={() => setSelectedModule(modules.find(m => m.code === 'CS3230'))}
-          />
-        </div>
-        <div className="absolute" style={{ left: 840, top: 270 }}>
-          <ModuleNode code="CS4231" status="locked" />
-        </div>
+        {/* Semester Labels */}
+        {pathData && pathData.semesters.map((sem, col) => (
+          <div
+            key={sem.name}
+            className="absolute"
+            style={{ left: PAD_X + col * COL_GAP, top: PAD_Y - 40, width: NODE_W }}
+          >
+            <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">{sem.name}</span>
+          </div>
+        ))}
+
+        {/* Nodes */}
+        {nodes.map(node => (
+          <div
+            key={node.id}
+            data-node
+            onClick={() => setSelectedNode(node)}
+            className={cn(
+              "absolute rounded flex flex-col items-center justify-center transition-all cursor-pointer select-none",
+              node.status === 'completed' && "bg-surface-low border-2 border-green-500/50 hover:bg-surface-high",
+              node.status === 'available' && "bg-surface-high border-2 border-secondary ring-2 ring-secondary/20 shadow-[0_0_15px_rgba(0,240,255,0.1)]",
+              node.status === 'locked' && "bg-surface-low border-2 border-dotted border-slate-600 opacity-70 hover:opacity-90",
+              selectedNode?.id === node.id && "ring-4 ring-primary/40 shadow-[0_0_20px_rgba(176,38,255,0.3)]",
+            )}
+            style={{ left: node.x, top: node.y, width: NODE_W, height: NODE_H }}
+          >
+            <span className={cn(
+              "font-mono text-[11px] font-bold",
+              node.status === 'completed' && "text-green-400",
+              node.status === 'available' && "text-secondary",
+              node.status === 'locked' && "text-slate-400",
+            )}>
+              {node.id}
+            </span>
+            <span className="text-[8px] text-slate-500 max-w-[120px] truncate text-center px-1">{node.name}</span>
+          </div>
+        ))}
       </div>
 
       {/* Toolbar */}
-      <div className="absolute bottom-10 left-10 flex items-center gap-2 p-1.5 bg-surface/80 backdrop-blur-xl border border-outline-variant/30 rounded shadow-2xl">
-        <button className="p-2 hover:bg-white/5 text-slate-400 transition-colors"><ZoomIn size={18} /></button>
-        <button className="p-2 hover:bg-white/5 text-slate-400 transition-colors"><ZoomOut size={18} /></button>
+      <div className="absolute bottom-10 left-10 flex items-center gap-2 p-1.5 bg-surface/80 backdrop-blur-xl border border-outline-variant/30 rounded shadow-2xl z-10">
+        <button onClick={() => setZoom(z => Math.min(z + 0.15, 2.5))} className="p-2 hover:bg-white/5 text-slate-400 transition-colors"><ZoomIn size={18} /></button>
+        <button onClick={() => setZoom(z => Math.max(z - 0.15, 0.3))} className="p-2 hover:bg-white/5 text-slate-400 transition-colors"><ZoomOut size={18} /></button>
         <div className="w-px h-4 bg-outline-variant/30 mx-1"></div>
-        <button className="p-2 hover:bg-white/5 text-slate-400 transition-colors"><Maximize size={18} /></button>
-        <button className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 text-slate-400 transition-colors">
+        <button onClick={fitToScreen} className="flex items-center gap-2 px-3 py-1.5 hover:bg-white/5 text-slate-400 transition-colors">
           <Focus size={14} />
           <span className="text-[10px] font-mono uppercase tracking-widest">Fit to Screen</span>
         </button>
+        <div className="w-px h-4 bg-outline-variant/30 mx-1"></div>
+        <span className="text-[10px] font-mono text-slate-500 px-2">{Math.round(zoom * 100)}%</span>
       </div>
 
       {/* Details Panel */}
-      {selectedModule && (
-        <aside className="absolute right-0 top-0 h-full w-[320px] bg-surface/90 backdrop-blur-2xl border-l border-outline-variant/30 p-8 flex flex-col gap-6 shadow-[-20px_0_40px_rgba(0,0,0,0.4)]">
+      {selectedNode && (
+        <aside className="absolute right-0 top-0 h-full w-[320px] bg-surface/90 backdrop-blur-2xl border-l border-outline-variant/30 p-8 flex flex-col gap-6 shadow-[-20px_0_40px_rgba(0,0,0,0.4)] z-10 overflow-y-auto custom-scrollbar">
           <header>
             <div className="flex items-center justify-between mb-4">
-              <span className="font-mono text-secondary text-sm">{selectedModule.code}</span>
+              <span className="font-mono text-secondary text-sm">{selectedNode.id}</span>
               <span className="px-2 py-0.5 rounded bg-secondary/10 text-secondary text-[10px] font-mono font-bold border border-secondary/20">
-                {selectedModule.type}
+                {selectedNode.credits} MC
               </span>
             </div>
-            <h3 className="font-headline text-2xl font-bold leading-tight mb-2">{selectedModule.name}</h3>
-            <p className="text-xs text-slate-400 leading-relaxed italic">"{selectedModule.description}"</p>
+            <h3 className="font-headline text-2xl font-bold leading-tight mb-2">{selectedNode.name}</h3>
+            <p className="text-xs text-slate-400">{selectedNode.semester}</p>
           </header>
 
           <div className="space-y-6">
+            {/* Incoming edges (prerequisites) */}
             <section>
-              <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-3">Prerequisites (Met)</h4>
+              <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-3">Prerequisites</h4>
               <div className="space-y-2">
-                {selectedModule.prerequisites.map(pre => (
-                  <div key={pre} className="flex items-center gap-3 p-3 bg-surface-high/40 rounded border-l-2 border-green-500">
-                    <CheckCircle size={14} className="text-green-500" />
-                    <div>
-                      <p className="text-[11px] font-mono text-on-surface">{pre}</p>
-                      <p className="text-[9px] text-slate-500">Requirement Satisfied</p>
+                {edges.filter(e => e.to === selectedNode.id).map(e => {
+                  const prereq = nodeMap.get(e.from);
+                  return prereq ? (
+                    <div key={e.from} className="flex items-center gap-3 p-3 bg-surface-high/40 rounded border-l-2 border-green-500">
+                      <CheckCircle size={14} className="text-green-500" />
+                      <div>
+                        <p className="text-[11px] font-mono text-on-surface">{prereq.id}</p>
+                        <p className="text-[9px] text-slate-500">{prereq.name}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ) : null;
+                })}
+                {edges.filter(e => e.to === selectedNode.id).length === 0 && (
+                  <p className="text-[10px] text-slate-500">No prerequisites</p>
+                )}
               </div>
             </section>
 
+            {/* Outgoing edges (unlocks) */}
             <section>
-              <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-3">Unlocks Future Modules</h4>
+              <h4 className="text-[10px] font-mono uppercase tracking-[0.2em] text-slate-500 mb-3">Unlocks</h4>
               <div className="flex flex-wrap gap-2">
-                {selectedModule.unlocks.map(unlock => (
-                  <span key={unlock} className="px-2 py-1 bg-surface-high rounded text-[10px] font-mono text-slate-300 border border-outline-variant/10">
-                    {unlock}
+                {edges.filter(e => e.from === selectedNode.id).map(e => (
+                  <span key={e.to} className="px-2 py-1 bg-surface-high rounded text-[10px] font-mono text-slate-300 border border-outline-variant/10">
+                    {e.to}
                   </span>
                 ))}
+                {edges.filter(e => e.from === selectedNode.id).length === 0 && (
+                  <p className="text-[10px] text-slate-500">Terminal module</p>
+                )}
               </div>
             </section>
 
             <section className="mt-auto pt-6">
               <button
-                onClick={handleAddToPlanner}
+                onClick={() => handleAddToPlanner(selectedNode)}
                 className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-3 px-6 rounded flex items-center justify-center gap-2 transition-all group"
               >
                 <PlusCircle size={18} className="group-hover:translate-x-1 transition-transform" />
@@ -156,50 +418,42 @@ export function GraphView() {
       )}
 
       {/* Minimap */}
-      <div className="absolute top-24 right-[340px] w-48 h-32 bg-surface-low/80 border border-outline-variant/20 rounded-lg overflow-hidden backdrop-blur-md">
-        <div className="w-full h-full p-2 relative">
-          <div className="absolute inset-0 canvas-grid opacity-20 scale-50 origin-top-left"></div>
-          <div className="absolute top-8 left-4 w-4 h-2 bg-green-500/50 rounded-sm"></div>
-          <div className="absolute top-4 left-12 w-4 h-2 bg-green-500/50 rounded-sm"></div>
-          <div className="absolute top-12 left-12 w-4 h-2 bg-green-500/50 rounded-sm"></div>
-          <div className="absolute top-8 left-20 w-4 h-2 bg-secondary/50 rounded-sm"></div>
-          <div className="absolute inset-2 border border-primary/40 bg-primary/5 pointer-events-none"></div>
+      {nodes.length > 0 && (
+        <div className={cn(
+          "absolute top-4 w-48 h-32 bg-surface-low/80 border border-outline-variant/20 rounded-lg overflow-hidden backdrop-blur-md z-10",
+          selectedNode ? "right-[340px]" : "right-4"
+        )}>
+          <svg className="w-full h-full p-2" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="xMidYMid meet">
+            {edges.map((edge, i) => {
+              const from = nodeMap.get(edge.from);
+              const to = nodeMap.get(edge.to);
+              if (!from || !to) return null;
+              return <line key={i} x1={from.x + NODE_W / 2} y1={from.y + NODE_H / 2} x2={to.x + NODE_W / 2} y2={to.y + NODE_H / 2} stroke="#2A2A35" strokeWidth={3} />;
+            })}
+            {nodes.map(node => (
+              <rect
+                key={node.id}
+                x={node.x}
+                y={node.y}
+                width={NODE_W}
+                height={NODE_H}
+                rx={4}
+                fill={
+                  selectedNode?.id === node.id ? '#B026FF' :
+                  node.status === 'completed' ? 'rgba(34,197,94,0.4)' :
+                  node.status === 'available' ? 'rgba(0,240,255,0.4)' :
+                  'rgba(100,116,139,0.3)'
+                }
+              />
+            ))}
+          </svg>
+          <div className="absolute bottom-0 w-full bg-surface-high px-2 py-1 border-t border-outline-variant/10">
+            <span className="text-[8px] font-mono text-slate-500 uppercase">
+              {nodes.length} modules · {pathData ? pathData.semesters.length + ' semesters' : 'Navigator'}
+            </span>
+          </div>
         </div>
-        <div className="absolute bottom-0 w-full bg-surface-high px-2 py-1 border-t border-outline-variant/10">
-          <span className="text-[8px] font-mono text-slate-500 uppercase">Navigator View</span>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function ModuleNode({ code, status, active, onClick }: { code: string, status: string, active?: boolean, onClick?: () => void }) {
-  const isCompleted = status === 'completed';
-  const isAvailable = status === 'available';
-  const isLocked = status === 'locked';
-
-  return (
-    <div
-      onClick={onClick}
-      className={cn(
-        "w-[120px] h-[60px] rounded flex flex-col items-center justify-center transition-all cursor-pointer",
-        isCompleted && "bg-surface-low border-2 border-green-500/50 hover:bg-surface-high",
-        isAvailable && "bg-surface-high border-2 border-secondary ring-2 ring-secondary/20 shadow-[0_0_15px_rgba(0,240,255,0.1)]",
-        isLocked && "bg-surface-low border-2 border-dotted border-slate-600 cursor-not-allowed opacity-60",
-        active && "ring-4 ring-primary/30"
       )}
-    >
-      <span className={cn(
-        "font-mono text-xs",
-        isCompleted && "text-green-400",
-        isAvailable && "text-secondary",
-        isLocked && "text-slate-400"
-      )}>
-        {code}
-      </span>
-      <span className="text-[9px] uppercase tracking-tighter text-slate-500">
-        {status}
-      </span>
     </div>
   );
 }
