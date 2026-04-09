@@ -6,7 +6,7 @@
   <p><strong>A conversational AI advisor that generates personalised degree pathways from natural language prompts.</strong></p>
 
   <p>
-    <em>Winner — Best Student Focused Project, Google AI Agentic Hackathon 2026</em>
+    <em>Winner: Best Student Focused Project, Google AI Agentic Hackathon 2026</em>
   </p>
 </div>
 
@@ -14,34 +14,34 @@
 
 ## About
 
-ModuleMate is a full-stack web app that helps undergraduates plan their degree. Students chat with an AI advisor in plain English ("I want to specialise in machine learning but keep my options open for a fintech placement") and ModuleMate responds with a semester-by-semester roadmap drawn from real university modules, respecting prerequisite chains, credit requirements and scheduling conflicts.
+ModuleMate is a full-stack web app that helps undergraduates plan their degree. Students ask the advisor something like "I want to specialise in machine learning but keep my options open for a fintech placement" and get back a semester-by-semester roadmap built from real university modules, with prerequisites and scheduling conflicts already resolved.
 
-It was built for the **Google AI Agentic Hackathon 2026** and won **Best Student Focused Project** against teams of undergraduates through to PhD researchers. The system was pitched and defended live to a panel including a lead Google Cloud engineer.
+It was built for the **Google AI Agentic Hackathon 2026** and won **Best Student Focused Project** against teams of undergraduates and PhD researchers. The system was pitched and defended live to a panel including a lead Google Cloud engineer.
 
 ## Screenshots
 
-**1. Home — chat with the AI advisor.** The student opens ModuleMate, sees their academic status (GPA, credit progress, prerequisite alerts) and asks the agent for a personalised roadmap in plain English. Gemini 2.5 Flash responds with a year-by-year plan grounded in real UoB module codes.
+**1. Home.** The student opens ModuleMate, sees their academic status (GPA, credit progress, prerequisite alerts) and asks the agent for a personalised roadmap. Gemini 2.5 Flash responds with a year-by-year plan built from real UoB module codes.
 
-![Home view — AI advisor generating a personalised roadmap](docs/screenshots/01-home-chat.png)
+![Home view showing the AI advisor generating a personalised roadmap](docs/screenshots/01-home-chat.png)
 
-**2. Major Explorer — browse and filter the module catalogue.** From the roadmap the student jumps into the Explorer to drill into individual modules: filter by year, status or type, and inspect credits, difficulty, workload and prerequisites before committing anything to their schedule.
+**2. Major Explorer.** From the roadmap the student jumps into the Explorer to inspect individual modules: filter by year, status or type, and check credits, difficulty, workload and prerequisites before adding anything to their schedule.
 
-![Major Explorer — filterable module grid with prerequisite status](docs/screenshots/02-explorer.png)
+![Major Explorer showing the filterable module grid with prerequisite status](docs/screenshots/02-explorer.png)
 
 ## Features
 
-- **Conversational advisor** — chat-first interface for degree planning, powered by Gemini 2.5 Flash with function calling
-- **AI roadmap generation** — produces personalised 4-year pathways constrained to real modules from the database
-- **Prerequisite graph** — interactive dependency graph with pan/zoom, per-module unlocks, and live prerequisite status (completed / available / locked)
-- **Degree explorer** — browse majors, preview AI-generated pathways, and drop modules into a planner
-- **Module comparison** — side-by-side comparison with AI-generated recommendations on which module to pick
-- **Schedule view** — semester-grouped planner with live conflict detection
-- **Transcripts** — upload transcripts to hydrate your completed-modules list
-- **Settings** — manage your API key and reset user state
+- **Conversational advisor.** Chat-first interface for degree planning, powered by Gemini 2.5 Flash with function calling.
+- **AI roadmap generation.** Produces personalised 4-year pathways constrained to real modules from the database.
+- **Prerequisite graph.** Interactive dependency graph with pan/zoom, per-module unlocks, and live prerequisite status (completed / available / locked).
+- **Degree explorer.** Browse majors, preview AI-generated pathways, and drop modules into a planner.
+- **Module comparison.** Side-by-side comparison with AI-generated recommendations on which module to pick.
+- **Schedule view.** Semester-grouped planner with live conflict detection.
+- **Transcripts.** Upload transcripts to hydrate your completed-modules list.
+- **Settings.** Manage your API key and reset user state.
 
 ## Architecture
 
-ModuleMate is structured as an agentic system rather than a single-prompt chatbot. The frontend sends natural-language intents to the backend, which orchestrates tool calls against a structured module graph and returns grounded responses.
+The advisor is a tool-using agent, not a one-shot chatbot. The frontend forwards the student's prompt to the Express backend, which hands it to Gemini with a set of callable tools (module lookup, prerequisite traversal, conflict checks, roadmap generation). The model decides which tools to call and the backend executes them against the local SQLite module graph before the response is streamed back.
 
 ```
 ┌──────────────┐    /api    ┌─────────────────┐   tool calls    ┌──────────────┐
@@ -60,15 +60,15 @@ ModuleMate is structured as an agentic system rather than a single-prompt chatbo
                            └─────────────────┘
 ```
 
-**Agentic design choices**
+**Design choices**
 
-- **Gemini 2.5 Flash function calling** drives the conversation loop. The advisor has access to tools for module lookup, prerequisite traversal, conflict checking and roadmap generation, and decides which to call based on the student's prompt.
-- **Grounded retrieval** — the model is constrained to only emit real module codes/names from the database; invented modules are rejected at the service layer.
-- **Prerequisite graph traversal** happens deterministically in `server/src/services/prerequisites.ts` (computing `completed / available / locked` state) so the LLM never has to reason about the graph itself.
-- **Conflict detection** for schedules lives in `server/src/services/conflicts.ts`, again keeping scheduling logic out of the model.
-- **Containerised full stack** — single Docker image runs the frontend (nginx), Express API and SQLite, configured via `docker-compose.yml`.
+- **Gemini 2.5 Flash function calling** drives the conversation loop. The model picks tools based on the student's prompt.
+- **Grounded output.** The model is constrained to real module codes and names from the database. Invented codes are rejected at the service layer before they reach the UI.
+- **Deterministic graph logic.** Prerequisite status (`completed / available / locked`) is computed in `server/src/services/prerequisites.ts`, so the LLM never has to reason about the graph itself.
+- **Deterministic conflict detection.** Schedule conflicts live in `server/src/services/conflicts.ts`, again keeping logic out of the model.
+- **Containerised full stack.** A single Docker image runs the frontend (nginx), the Express API and SQLite, wired up by `docker-compose.yml`.
 
-> The hackathon submission used Vertex AI Search for semantic module retrieval and BigQuery for prerequisite graph traversal. This open-source reference implementation swaps those managed services for SQLite so the project is easy to run locally without a GCP account — the agentic structure is identical.
+> The hackathon submission used Vertex AI Search for semantic module retrieval and BigQuery for prerequisite graph traversal. This open-source reference implementation swaps those managed services for SQLite so the project is easy to run locally without a GCP account. The agentic structure is identical.
 
 ## Tech stack
 
@@ -150,10 +150,10 @@ cd ..
 In two terminals:
 
 ```bash
-# terminal 1 — backend API on :3001
+# terminal 1: backend API on :3001
 cd server && npm run dev
 
-# terminal 2 — frontend on :3000
+# terminal 2: frontend on :3000
 npm run dev
 ```
 
@@ -197,4 +197,4 @@ The app is served at [http://localhost:8080](http://localhost:8080). SQLite data
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
