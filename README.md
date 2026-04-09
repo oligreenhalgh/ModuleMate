@@ -18,6 +18,16 @@ ModuleMate is a full-stack web app that helps undergraduates plan their degree. 
 
 It was built for the **Google AI Agentic Hackathon 2026** and won **Best Student Focused Project** against teams of undergraduates through to PhD researchers. The system was pitched and defended live to a panel including a lead Google Cloud engineer.
 
+## Screenshots
+
+**1. Home — chat with the AI advisor.** The student opens ModuleMate, sees their academic status (GPA, credit progress, prerequisite alerts) and asks the agent for a personalised roadmap in plain English. Gemini 2.5 Flash responds with a year-by-year plan grounded in real UoB module codes.
+
+![Home view — AI advisor generating a personalised roadmap](docs/screenshots/01-home-chat.png)
+
+**2. Major Explorer — browse and filter the module catalogue.** From the roadmap the student jumps into the Explorer to drill into individual modules: filter by year, status or type, and inspect credits, difficulty, workload and prerequisites before committing anything to their schedule.
+
+![Major Explorer — filterable module grid with prerequisite status](docs/screenshots/02-explorer.png)
+
 ## Features
 
 - **Conversational advisor** — chat-first interface for degree planning, powered by Gemini 2.5 Flash with function calling
