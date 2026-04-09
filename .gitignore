@@ -1,12 +1,33 @@
+# dependencies
 node_modules/
-build/
+server/node_modules/
+
+# builds
 dist/
-coverage/
-.DS_Store
-*.log
-.env*
-!.env.example
-server/modulemate.db
-server/uploads/
+build/
 server/dist/
-server/modulemate.db*
+
+# env
+.env
+.env.*
+!.env.example
+
+# database
+server/modulemate.db
+server/modulemate.db-shm
+server/modulemate.db-wal
+server/uploads/
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# logs + coverage
+*.log
+npm-debug.log*
+coverage/
+
+# local tooling state
+.claude/

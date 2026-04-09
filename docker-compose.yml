@@ -6,7 +6,8 @@ services:
     environment:
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - SESSION_SECRET=${SESSION_SECRET:-modulemate-docker-secret}
-      - PORT=3001
+      - PORT=80
+      - BACKEND_PORT=3001
       - DATABASE_PATH=/app/data/modulemate.db
       - NODE_ENV=production
     volumes:

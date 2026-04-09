@@ -143,7 +143,8 @@ router.post('/threads/:id/messages', async (req, res) => {
       const completedRows = db.prepare("SELECT code FROM modules WHERE status = 'completed'").all() as { code: string }[];
       const completedModules = completedRows.map(r => r.code);
 
-      const uobModules = db.prepare('SELECT code, name, credits, year, type FROM uob_modules').all() as { code: string; name: string; credits: number; year: number; type: string }[];
+      // Fetch real UoB modules for the prompt
+      const uobRows = db.prepare('SELECT code, name, credits, year FROM uob_modules ORDER BY year, code').all() as { code: string; name: string; credits: number; year: number }[];
 
       try {
         roadmap = await generateRoadmap(history, {
@@ -152,7 +153,8 @@ router.post('/threads/:id/messages', async (req, res) => {
           total_credits: profile?.total_credits || 0,
           required_credits: profile?.required_credits || 0,
           completed_modules: completedModules,
-        }, uobModules, apiKey);
+          available_modules: uobRows,
+        }, apiKey);
 
         // Sync roadmap modules into the database so they appear in Explorer
         if (roadmap && roadmap.semesters) {
@@ -160,8 +162,14 @@ router.post('/threads/:id/messages', async (req, res) => {
             `INSERT OR IGNORE INTO modules (code, name, description, credits, status, type)
              VALUES (?, ?, ?, ?, ?, 'Core')`
           );
+          const insertPrereq = db.prepare(
+            `INSERT OR IGNORE INTO module_prerequisites (module_code, prerequisite_code) VALUES (?, ?)`
+          );
+          // Collect all roadmap module codes for prerequisite lookup
+          const roadmapCodes = new Set<string>();
           for (const sem of roadmap.semesters) {
             for (const mod of sem.modules) {
+              roadmapCodes.add(mod.code);
               const isCompleted = completedModules.includes(mod.code);
               insertMod.run(
                 mod.code,
@@ -170,6 +178,15 @@ router.post('/threads/:id/messages', async (req, res) => {
                 mod.credits,
                 isCompleted ? 'completed' : 'available'
               );
+            }
+          }
+          // Copy prerequisites from uob_prerequisites for roadmap modules
+          const uobPrereqs = db.prepare(
+            'SELECT module_code, prerequisite_code FROM uob_prerequisites'
+          ).all() as { module_code: string; prerequisite_code: string }[];
+          for (const { module_code, prerequisite_code } of uobPrereqs) {
+            if (roadmapCodes.has(module_code) && roadmapCodes.has(prerequisite_code)) {
+              insertPrereq.run(module_code, prerequisite_code);
             }
           }
         }

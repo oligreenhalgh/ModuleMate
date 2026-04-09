@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Send, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Plus, ChevronDown, ChevronUp, Map, Trash2, CalendarPlus } from 'lucide-react';
+import { Send, Sparkles, TrendingUp, TrendingDown, AlertTriangle, Plus, ChevronDown, ChevronUp, Map, Trash2 } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
-import { getThreads, createThread, getMessages, sendMessage, getStats, deleteThread, bulkSetSchedule, Thread, UserStats } from '../services/api';
+import { getThreads, createThread, getMessages, sendMessage, getStats, deleteThread, Thread, UserStats } from '../services/api';
 import { Message } from '../types';
 import { cn } from '../lib/utils';
 
@@ -266,7 +266,7 @@ export function HomeView() {
                 )}
 
                 {msg.roadmap && msg.roadmap.semesters.length > 0 && (
-                  <div className="mt-4 flex flex-wrap gap-3">
+                  <div className="mt-4">
                     <button
                       onClick={() => {
                         sessionStorage.setItem('roadmap', JSON.stringify(msg.roadmap));
@@ -278,34 +278,6 @@ export function HomeView() {
                       <div className="text-left">
                         <span className="text-sm font-headline font-bold text-primary">Generate Roadmap</span>
                         <p className="text-[10px] font-mono text-primary/60">{msg.roadmap.semesters.length} semesters · {msg.roadmap.semesters.reduce((sum, s) => sum + s.modules.length, 0)} modules</p>
-                      </div>
-                    </button>
-                    <button
-                      onClick={async () => {
-                        if (!msg.roadmap) return;
-                        const entries = msg.roadmap.semesters.flatMap(sem =>
-                          sem.modules.map(mod => ({
-                            module_code: mod.code,
-                            course_name: mod.name,
-                            schedule: 'TBD',
-                            professor: 'TBD',
-                            credits: mod.credits,
-                            semester: sem.name,
-                          }))
-                        );
-                        try {
-                          const res = await bulkSetSchedule(entries);
-                          toast.success(`Schedule updated! ${res.count} modules added.`);
-                        } catch {
-                          toast.error('Failed to update schedule.');
-                        }
-                      }}
-                      className="flex items-center gap-3 px-5 py-3 bg-green-500/10 border border-green-500/30 rounded hover:bg-green-500/20 transition-all group"
-                    >
-                      <CalendarPlus size={18} className="text-green-400 group-hover:scale-110 transition-transform" />
-                      <div className="text-left">
-                        <span className="text-sm font-headline font-bold text-green-400">Add All to Schedule</span>
-                        <p className="text-[10px] font-mono text-green-400/60">{msg.roadmap.semesters.reduce((sum, s) => sum + s.modules.length, 0)} modules · {msg.roadmap.semesters.reduce((sum, s) => sum + s.modules.reduce((c, m) => c + m.credits, 0), 0)} credits</p>
                       </div>
                     </button>
                   </div>

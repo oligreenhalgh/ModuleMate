@@ -24,19 +24,12 @@ router.get('/conflicts', (_req, res) => {
   res.json(conflicts);
 });
 
-/** POST / — add a schedule entry (rejects duplicates) */
+/** POST / — add a schedule entry */
 router.post('/', (req, res) => {
   const db = getDb();
   const { module_code, course_name, schedule, professor, credits, semester } = req.body;
-
-  // Prevent duplicate module codes
-  const existing = db.prepare('SELECT id FROM schedule_entries WHERE module_code = ?').get(module_code);
-  if (existing) {
-    res.status(409).json({ error: `${module_code} is already in your schedule` });
-    return;
-  }
-
   const id = uuidv4();
+
   db.prepare(
     'INSERT INTO schedule_entries (id, module_code, course_name, schedule, professor, credits, semester) VALUES (?, ?, ?, ?, ?, ?, ?)'
   ).run(id, module_code, course_name, schedule, professor, credits, semester);
@@ -44,31 +37,11 @@ router.post('/', (req, res) => {
   res.status(201).json({ id });
 });
 
-/** POST /bulk — replace entire schedule with roadmap modules */
-router.post('/bulk', (req, res) => {
+/** DELETE / — clear all schedule entries */
+router.delete('/', (_req, res) => {
   const db = getDb();
-  const { entries } = req.body as { entries: { module_code: string; course_name: string; schedule: string; professor: string; credits: number; semester: string }[] };
-
-  if (!entries || !Array.isArray(entries)) {
-    res.status(400).json({ error: 'entries array is required' });
-    return;
-  }
-
-  // Clear current schedule
   db.prepare('DELETE FROM schedule_entries').run();
-
-  // Insert all new entries
-  const insert = db.prepare(
-    'INSERT INTO schedule_entries (id, module_code, course_name, schedule, professor, credits, semester) VALUES (?, ?, ?, ?, ?, ?, ?)'
-  );
-  const added: string[] = [];
-  for (const e of entries) {
-    const id = uuidv4();
-    insert.run(id, e.module_code, e.course_name, e.schedule, e.professor, e.credits, e.semester);
-    added.push(e.module_code);
-  }
-
-  res.status(201).json({ added, count: added.length });
+  res.json({ success: true });
 });
 
 /** DELETE /:id — remove a schedule entry */

@@ -18,7 +18,7 @@ RUN apk add --no-cache python3 make g++
 
 WORKDIR /app/server
 COPY server/package.json server/package-lock.json* ./
-RUN npm install --omit=dev
+RUN npm install
 COPY server/ .
 
 # ============================================
@@ -48,14 +48,14 @@ COPY nginx.conf /etc/nginx/http.d/default.conf
 
 # Copy entrypoint
 COPY docker-entrypoint.sh /app/docker-entrypoint.sh
-RUN chmod +x /app/docker-entrypoint.sh
+RUN sed -i 's/\r$//' /app/docker-entrypoint.sh && chmod +x /app/docker-entrypoint.sh
 
 WORKDIR /app
 
-EXPOSE 80
+EXPOSE 8080
 
 ENV NODE_ENV=production
-ENV PORT=3001
+ENV BACKEND_PORT=3001
 ENV DATABASE_PATH=/app/data/modulemate.db
 
 CMD ["/app/docker-entrypoint.sh"]

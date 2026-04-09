@@ -8,9 +8,10 @@ import {
   Loader2,
   ArrowLeft,
   BookOpen,
+  CalendarPlus,
 } from 'lucide-react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { getUoBModules, getMajorPath, getMajor, addScheduleEntry, getSchedule } from '../services/api';
+import { getUoBModules, getMajorPath, getMajor, addScheduleEntry, getSchedule, clearSchedule } from '../services/api';
 import type { MajorPath } from '../services/api';
 import { toast } from 'sonner';
 import { cn } from '../lib/utils';
@@ -43,13 +44,19 @@ const ROW_GAP = 90;
 const PAD_X = 80;
 const PAD_Y = 100;
 
-function layoutNodes(semesters: MajorPath['semesters']): { nodes: GraphNode[]; edges: GraphEdge[]; width: number; height: number } {
+function layoutNodes(semesters: MajorPath['semesters'], uobModules?: Module[]): { nodes: GraphNode[]; edges: GraphEdge[]; columnLabels: { label: string; x: number }[]; width: number; height: number } {
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
+  const columnLabels: { label: string; x: number }[] = [];
   let maxRows = 0;
+
+  // Collect all roadmap module codes
+  const roadmapCodes = new Set<string>();
+  semesters.forEach(sem => sem.modules.forEach(mod => roadmapCodes.add(mod.code)));
 
   semesters.forEach((sem, col) => {
     maxRows = Math.max(maxRows, sem.modules.length);
+    columnLabels.push({ label: sem.name, x: PAD_X + col * COL_GAP });
     sem.modules.forEach((mod, row) => {
       nodes.push({
         id: mod.code,
@@ -64,26 +71,42 @@ function layoutNodes(semesters: MajorPath['semesters']): { nodes: GraphNode[]; e
     });
   });
 
-  // Create edges: each module in semester N connects to modules in semester N+1
-  for (let col = 0; col < semesters.length - 1; col++) {
-    const currMods = semesters[col].modules;
-    const nextMods = semesters[col + 1].modules;
-    // Connect last module of current semester to first of next (prerequisite chain)
-    if (currMods.length > 0 && nextMods.length > 0) {
-      edges.push({
-        from: currMods[currMods.length - 1].code,
-        to: nextMods[0].code,
-      });
+  // Build edges from real UoB prerequisites if available
+  if (uobModules && uobModules.length > 0) {
+    const uobMap = new Map(uobModules.map(m => [m.code, m]));
+    for (const code of roadmapCodes) {
+      const uobMod = uobMap.get(code);
+      if (uobMod) {
+        for (const prereq of uobMod.prerequisites) {
+          if (roadmapCodes.has(prereq)) {
+            edges.push({ from: prereq, to: code });
+          }
+        }
+      }
+    }
+  }
+
+  // Fallback: if no real prerequisite edges found, create semester-to-semester edges
+  if (edges.length === 0) {
+    for (let col = 0; col < semesters.length - 1; col++) {
+      const currMods = semesters[col].modules;
+      const nextMods = semesters[col + 1].modules;
+      if (currMods.length > 0 && nextMods.length > 0) {
+        edges.push({
+          from: currMods[currMods.length - 1].code,
+          to: nextMods[0].code,
+        });
+      }
     }
   }
 
   const width = PAD_X * 2 + semesters.length * COL_GAP;
   const height = PAD_Y * 2 + maxRows * ROW_GAP;
 
-  return { nodes, edges, width, height };
+  return { nodes, edges, columnLabels, width, height };
 }
 
-function layoutModules(modules: Module[]): { nodes: GraphNode[]; edges: GraphEdge[]; width: number; height: number } {
+function layoutModules(modules: Module[]): { nodes: GraphNode[]; edges: GraphEdge[]; columnLabels: { label: string; x: number }[]; width: number; height: number } {
   // Topological sort by prerequisites to assign columns
   const codeToMod = new Map(modules.map(m => [m.code, m]));
   const depths = new Map<string, number>();
@@ -109,17 +132,19 @@ function layoutModules(modules: Module[]): { nodes: GraphNode[]; edges: GraphEdg
 
   const nodes: GraphNode[] = [];
   const edges: GraphEdge[] = [];
+  const columnLabels: { label: string; x: number }[] = [];
   let maxRows = 0;
 
   const sortedCols = [...columns.entries()].sort((a, b) => a[0] - b[0]);
   sortedCols.forEach(([col, mods], colIdx) => {
     maxRows = Math.max(maxRows, mods.length);
+    columnLabels.push({ label: `Year ${col + 1}`, x: PAD_X + colIdx * COL_GAP });
     mods.forEach((mod, row) => {
       nodes.push({
         id: mod.code,
         name: mod.name,
         credits: mod.credits,
-        semester: `Level ${col + 1}`,
+        semester: `Year ${col + 1}`,
         semesterIndex: colIdx,
         status: mod.status,
         x: PAD_X + colIdx * COL_GAP,
@@ -140,7 +165,7 @@ function layoutModules(modules: Module[]): { nodes: GraphNode[]; edges: GraphEdg
   const width = PAD_X * 2 + sortedCols.length * COL_GAP;
   const height = PAD_Y * 2 + maxRows * ROW_GAP;
 
-  return { nodes, edges, width, height };
+  return { nodes, edges, columnLabels, width, height };
 }
 
 // --- Component ---
@@ -152,6 +177,7 @@ export function GraphView() {
   const isRoadmap = searchParams.get('roadmap') === 'true';
 
   const [modules, setModules] = useState<Module[]>([]);
+  const [uobModules, setUobModules] = useState<Module[]>([]);
   const [pathData, setPathData] = useState<MajorPath | null>(null);
   const [majorName, setMajorName] = useState('');
   const [selectedNode, setSelectedNode] = useState<GraphNode | null>(null);
@@ -183,7 +209,11 @@ export function GraphView() {
       } catch {
         toast.error('Failed to load roadmap data.');
       }
-      setLoading(false);
+      // Fetch UoB modules for real prerequisite edges
+      getUoBModules()
+        .then(setUobModules)
+        .catch(() => {})
+        .finally(() => setLoading(false));
     } else if (majorId) {
       // Load AI-generated path for a major
       Promise.all([getMajor(majorId), getMajorPath(majorId)])
@@ -202,14 +232,14 @@ export function GraphView() {
     }
   }, [majorId, isRoadmap]);
 
-  const { nodes, edges, width, height } = useMemo(() => {
+  const { nodes, edges, columnLabels, width, height } = useMemo(() => {
     let result;
     if (pathData && pathData.semesters.length > 0) {
-      result = layoutNodes(pathData.semesters);
+      result = layoutNodes(pathData.semesters, uobModules);
     } else if (modules.length > 0) {
       result = layoutModules(modules);
     } else {
-      result = { nodes: [], edges: [], width: 800, height: 600 };
+      result = { nodes: [], edges: [], columnLabels: [], width: 800, height: 600 };
     }
     // Mark scheduled modules as completed (green)
     if (scheduledCodes.size > 0) {
@@ -218,7 +248,7 @@ export function GraphView() {
       );
     }
     return result;
-  }, [pathData, modules, scheduledCodes]);
+  }, [pathData, modules, uobModules, scheduledCodes]);
 
   const nodeMap = useMemo(() => new Map(nodes.map(n => [n.id, n])), [nodes]);
 
@@ -236,6 +266,33 @@ export function GraphView() {
       setScheduledCodes(prev => new Set([...prev, node.id]));
     } catch (err: any) {
       toast.error(err.message);
+    }
+  };
+
+  const handleAddRoadmapToSchedule = async () => {
+    if (!pathData) return;
+    try {
+      // Clear existing schedule
+      await clearSchedule();
+      // Add all roadmap modules
+      for (const sem of pathData.semesters) {
+        for (const mod of sem.modules) {
+          await addScheduleEntry({
+            module_code: mod.code,
+            course_name: mod.name,
+            schedule: 'TBD',
+            professor: 'TBD',
+            credits: mod.credits,
+            semester: sem.name,
+          });
+        }
+      }
+      // Update local state
+      const allCodes = new Set(pathData.semesters.flatMap(s => s.modules.map(m => m.code)));
+      setScheduledCodes(allCodes);
+      toast.success('Roadmap added to schedule!');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to add roadmap to schedule');
     }
   };
 
@@ -292,6 +349,15 @@ export function GraphView() {
               <p className="text-[10px] text-slate-400 leading-relaxed">{pathData.summary}</p>
             </div>
           )}
+          {isRoadmap && pathData && (
+            <button
+              onClick={handleAddRoadmapToSchedule}
+              className="ml-4 flex items-center gap-2 px-4 py-2 bg-primary hover:bg-primary/90 text-white font-bold rounded transition-all"
+            >
+              <CalendarPlus size={16} />
+              <span className="text-xs font-headline uppercase tracking-widest">Add to Schedule</span>
+            </button>
+          )}
         </div>
       )}
 
@@ -332,14 +398,14 @@ export function GraphView() {
           })}
         </svg>
 
-        {/* Semester Labels */}
-        {pathData && pathData.semesters.map((sem, col) => (
+        {/* Column Labels */}
+        {columnLabels.map(({ label, x }) => (
           <div
-            key={sem.name}
+            key={label}
             className="absolute"
-            style={{ left: PAD_X + col * COL_GAP, top: PAD_Y - 40, width: NODE_W }}
+            style={{ left: x, top: PAD_Y - 40, width: NODE_W }}
           >
-            <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">{sem.name}</span>
+            <span className="text-[9px] font-mono text-slate-500 uppercase tracking-widest">{label}</span>
           </div>
         ))}
 

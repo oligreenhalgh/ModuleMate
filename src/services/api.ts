@@ -68,8 +68,8 @@ export const addScheduleEntry = (entry: Omit<ScheduleEntry, 'id'>) =>
   request<{ id: string }>('/schedule', { method: 'POST', body: JSON.stringify(entry) });
 export const deleteScheduleEntry = (id: string) =>
   request(`/schedule/${id}`, { method: 'DELETE' });
-export const bulkSetSchedule = (entries: Omit<ScheduleEntry, 'id'>[]) =>
-  request<{ added: string[]; count: number }>('/schedule/bulk', { method: 'POST', body: JSON.stringify({ entries }) });
+export const clearSchedule = () =>
+  request('/schedule', { method: 'DELETE' });
 
 // Chat
 export interface Thread {

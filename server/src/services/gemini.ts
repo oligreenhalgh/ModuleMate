@@ -36,13 +36,14 @@ export function isRoadmapRequest(content: string): boolean {
 
 export async function generateRoadmap(
   messages: { role: string; content: string }[],
-  userContext: { program: string; gpa: number; total_credits: number; required_credits: number; completed_modules: string[] },
-  availableModules: { code: string; name: string; credits: number; year: number; type: string }[],
+  userContext: { program: string; gpa: number; total_credits: number; required_credits: number; completed_modules: string[]; available_modules?: { code: string; name: string; credits: number; year: number }[] },
   apiKey: string
 ): Promise<{ semesters: { name: string; modules: { code: string; name: string; credits: number }[] }[]; summary: string }> {
   const ai = new GoogleGenAI({ apiKey });
 
-  const moduleList = availableModules.map(m => `  - ${m.code}: ${m.name} (${m.credits} credits, Year ${m.year}, ${m.type})`).join('\n');
+  const moduleList = userContext.available_modules
+    ? userContext.available_modules.map(m => `  ${m.code} - ${m.name} (${m.credits} credits, Year ${m.year})`).join('\n')
+    : 'No module list available';
 
   const contextBlock = `
 STUDENT PROFILE:
@@ -52,25 +53,29 @@ STUDENT PROFILE:
 - Credits completed: ${userContext.total_credits}/${userContext.required_credits}
 - Completed modules: ${userContext.completed_modules.length > 0 ? userContext.completed_modules.join(', ') : 'None yet'}
 
-AVAILABLE MODULES (you MUST only use modules from this list):
+AVAILABLE MODULES (you MUST use these exact codes and names):
 ${moduleList}
 
 CONVERSATION CONTEXT:
 ${messages.map(m => `${m.role}: ${m.content}`).join('\n')}
 
-Generate a personalized semester-by-semester module roadmap using ONLY the modules listed above. Do NOT invent or reference any modules not in the list. If the conversation mentions a specific specialization, tailor elective choices to that.
+Generate a personalized semester-by-semester module roadmap using ONLY the modules listed above. You MUST use the exact module codes (e.g. "06-34253") and names from the list. Do NOT invent codes or use placeholder codes.
+
+If the conversation mentions a specific specialization, tailor elective choices to that. The student is in Year 1.
+
+Use 20-credit UK modules. Group by year (Year 1, Year 2, Year 3).
 
 Only include remaining semesters (skip completed ones). Do not include modules the student has already completed.
 
 Return ONLY valid JSON (no markdown fences) in this exact format:
 {
   "semesters": [
-    { "name": "Year 1 Autumn", "modules": [{ "code": "06-34253", "name": "Software Workshop 1", "credits": 20 }] }
+    { "name": "Year 1", "modules": [{ "code": "06-34253", "name": "Software Workshop 1", "credits": 20 }] }
   ],
   "summary": "Brief 1-2 sentence summary of this personalized roadmap."
 }
 
-Include 3 modules per semester (60 credits per semester, 120 per year). Use the exact codes and names from the list above.`;
+Include modules grouped by year. Use ONLY codes from the AVAILABLE MODULES list above.`;
 
   const response = await ai.models.generateContent({
     model: 'gemini-2.5-flash',
