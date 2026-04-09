@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="Module_mate_logo.png" alt="ModuleMate" width="220" />
+  <img src="docs/logo.png" alt="ModuleMate" width="220" />
 
   <h1>ModuleMate</h1>
 
@@ -94,7 +94,7 @@ The advisor is a tool-using agent, not a one-shot chatbot. The frontend forwards
 ```
 ModuleMate/
 ├── src/                      # React frontend
-│   ├── views/                # HomeView, ExplorerView, GraphView, ScheduleView, …
+│   ├── views/                # HomeView, ExplorerView, GraphView, ScheduleView, ...
 │   ├── components/           # Sidebar, TopBar
 │   ├── services/api.ts       # Typed API client
 │   └── constants.ts
@@ -109,10 +109,12 @@ ModuleMate/
 │   │       ├── prerequisites.ts
 │   │       └── conflicts.ts
 │   └── tests/                # Vitest + Supertest suites
-├── Dockerfile
+├── docker/                   # Dockerfile, entrypoint, nginx config
+├── docs/                     # Logo and screenshots
 ├── docker-compose.yml
-├── nginx.conf
-└── vite.config.ts
+├── vite.config.ts
+├── tsconfig.json
+└── package.json
 ```
 
 ## Getting started

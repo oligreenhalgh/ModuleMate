@@ -1,6 +1,8 @@
 services:
   modulemate:
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     ports:
       - "8080:80"
     environment:
