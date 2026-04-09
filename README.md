@@ -109,7 +109,7 @@ ModuleMate/
 
 ### Prerequisites
 - Node.js 20+
-- A Gemini API key — get one at [aistudio.google.com/apikey](https://aistudio.google.com/apikey)
+- A Gemini API key
 
 ### 1. Clone and install
 
